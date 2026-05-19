@@ -448,7 +448,7 @@ struct PeerDetailView: View {
                 }
             }
 
-            Section("Disappearing Messages") {
+            Section {
                 Picker("Auto-delete after", selection: $disappearingDuration) {
                     ForEach(DisappearingDuration.allCases, id: \.self) { duration in
                         Label(duration.label, systemImage: duration.icon)
@@ -458,6 +458,8 @@ struct PeerDetailView: View {
                 .onChange(of: disappearingDuration) { _, newValue in
                     appState.setDisappearingDuration(newValue, for: conversation.id)
                 }
+            } header: {
+                Text("Disappearing Messages")
             } footer: {
                 Text("When enabled, messages in this conversation will automatically disappear after the selected time period.")
             }
