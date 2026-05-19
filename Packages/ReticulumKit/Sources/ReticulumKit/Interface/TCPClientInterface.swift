@@ -49,6 +49,12 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
     private var reconnectDelay: TimeInterval = RNS.reconnectDelay
     private var reconnectTask: Task<Void, Never>?
 
+    /// Timestamp of last successful data exchange — used to detect stale iOS sockets.
+    public private(set) var lastActivityTime: Date = Date()
+
+    /// Whether a force-reconnect is currently in progress.
+    private var isForceReconnecting = false
+
     // MARK: - Initialization
 
     /// Create a TCP client interface.
@@ -96,10 +102,48 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
                     continuation.resume(throwing: error)
                 } else {
                     self.bytesSent += UInt64(framed.count)
+                    self.lastActivityTime = Date()
                     continuation.resume()
                 }
             })
         }
+    }
+
+    // MARK: - iOS Resilience
+
+    /// Force-reconnect this interface by tearing down the existing socket and
+    /// re-establishing. Critical on iOS where sockets go half-dead after
+    /// app suspend/resume cycles — the connection appears ready but cannot
+    /// actually transmit data. Learned from runcore project.
+    public func forceReconnect() async throws {
+        guard !isForceReconnecting else { return }
+        isForceReconnecting = true
+        defer { isForceReconnecting = false }
+
+        // Tear down existing connection without disabling auto-reconnect
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        connection?.cancel()
+        connection = nil
+        status = .disconnected
+
+        // Brief pause to let the old socket fully release (runcore uses 400ms)
+        try? await Task.sleep(nanoseconds: 400_000_000)
+
+        // Re-establish
+        reconnectDelay = RNS.reconnectDelay
+        receiveBuffer = Data()
+        inFrame = false
+        escapeNext = false
+        try await establishConnection()
+    }
+
+    /// Check if this connection appears stale (no data exchanged recently).
+    /// iOS can leave sockets in a half-dead state where `isOnline` is true
+    /// but no data flows.
+    public var isStale: Bool {
+        guard isOnline else { return false }
+        return Date().timeIntervalSince(lastActivityTime) > 30.0
     }
 
     // MARK: - Connection Management
@@ -133,6 +177,7 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
                     self.receiveBuffer = Data()
                     self.inFrame = false
                     self.escapeNext = false
+                    self.lastActivityTime = Date()
                     self.delegate?.interfaceDidConnect(self)
                     self.startReceiving()
                     if !resumed {
@@ -175,6 +220,7 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
 
             if let data = content, !data.isEmpty {
                 self.bytesReceived += UInt64(data.count)
+                self.lastActivityTime = Date()
                 self.processIncoming(data)
             }
 

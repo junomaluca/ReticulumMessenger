@@ -64,6 +64,18 @@ public actor RNSTransport {
     /// Maximum age for path entries.
     private let pathTimeout: TimeInterval = 3600.0
 
+    /// Interface watchdog task — monitors health of all interfaces.
+    private var watchdogTask: Task<Void, Never>?
+
+    /// How often the watchdog checks interface health (seconds).
+    private let watchdogInterval: TimeInterval = 5.0
+
+    /// Callbacks invoked when the watchdog detects all interfaces are offline.
+    private var allOfflineCallbacks: [@Sendable () -> Void] = []
+
+    /// Path response continuations waiting for paths.
+    private var pathResponseWaiters: [Data: [CheckedContinuation<Bool, Never>]] = [:]
+
     // MARK: - Initialization
 
     public init() {}
@@ -191,6 +203,9 @@ public actor RNSTransport {
         } else {
             pathTable[destinationHash] = entry
         }
+
+        // Notify anyone waiting for a path to this destination
+        notifyPathWaiters(for: destinationHash)
     }
 
     /// Get all known paths.
@@ -269,6 +284,18 @@ public actor RNSTransport {
     // MARK: - Packet Handlers
 
     private func handleDataPacket(_ packet: RNSPacket, from interfaceName: String) {
+        // Handle path response packets
+        if packet.context == .pathResponse && packet.data.count >= RNS.truncatedHashLength {
+            let respondedHash = Data(packet.data.prefix(RNS.truncatedHashLength))
+            registerPath(
+                destinationHash: respondedHash,
+                nextHop: nil,
+                interfaceName: interfaceName,
+                hops: packet.hops
+            )
+            return
+        }
+
         // Check if this is for a local destination
         if let destination = destinations[packet.destinationHash] {
             destination.packetCallback?(packet)
@@ -346,6 +373,108 @@ public actor RNSTransport {
     /// Remove a link.
     public func removeLink(_ link: RNSLink) {
         activeLinks.removeValue(forKey: link.linkHash)
+    }
+
+    // MARK: - Interface Health Watchdog
+
+    /// Start the interface health watchdog. Periodically checks all interfaces
+    /// and detects stale TCP connections (iOS suspend/resume leaves sockets half-dead).
+    /// Learned from runcore: poll every few seconds and force-reconnect stale interfaces.
+    public func startWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64((self?.watchdogInterval ?? 5.0) * 1_000_000_000))
+                guard !Task.isCancelled else { break }
+                await self?.runWatchdogCheck()
+            }
+        }
+    }
+
+    /// Stop the interface health watchdog.
+    public func stopWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = nil
+    }
+
+    /// Register a callback for when all interfaces go offline.
+    public func onAllOffline(_ callback: @escaping @Sendable () -> Void) {
+        allOfflineCallbacks.append(callback)
+    }
+
+    /// Force-reconnect all TCP interfaces. Called on app resume because
+    /// iOS leaves sockets half-dead after suspend. From runcore: always
+    /// kick TCP connections on resume regardless of apparent state.
+    public func forceReconnectAll() async {
+        for (_, interface) in interfaces {
+            if let tcp = interface as? TCPClientInterface {
+                try? await tcp.forceReconnect()
+            }
+        }
+    }
+
+    /// Single watchdog iteration — check each interface for staleness.
+    private func runWatchdogCheck() async {
+        var anyOnline = false
+        for (_, interface) in interfaces {
+            if interface.isOnline {
+                anyOnline = true
+            }
+            // Detect stale TCP connections
+            if let tcp = interface as? TCPClientInterface, tcp.isStale {
+                try? await tcp.forceReconnect()
+            }
+        }
+
+        if !anyOnline && !interfaces.isEmpty {
+            for callback in allOfflineCallbacks {
+                callback()
+            }
+        }
+    }
+
+    // MARK: - Path Response Handling
+
+    /// Wait for a path to become available (with timeout).
+    /// Returns true if a path was found, false on timeout.
+    public func waitForPath(to destinationHash: Data, timeout: TimeInterval = 10.0) async -> Bool {
+        // Check if already known
+        if hasPath(to: destinationHash) { return true }
+
+        // Wait with timeout
+        return await withCheckedContinuation { continuation in
+            if pathResponseWaiters[destinationHash] == nil {
+                pathResponseWaiters[destinationHash] = []
+            }
+            pathResponseWaiters[destinationHash]?.append(continuation)
+
+            // Timeout task
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                await self.cancelPathWaiter(for: destinationHash, continuation: continuation)
+            }
+        }
+    }
+
+    /// Cancel a path waiter that timed out.
+    private func cancelPathWaiter(for hash: Data, continuation: CheckedContinuation<Bool, Never>) {
+        if var waiters = pathResponseWaiters[hash] {
+            // Resume any remaining waiters with false (timeout)
+            // We can't directly compare continuations, so resume all remaining
+            for waiter in waiters {
+                waiter.resume(returning: hasPath(to: hash))
+            }
+            pathResponseWaiters.removeValue(forKey: hash)
+        }
+    }
+
+    /// Notify path waiters when a new path is registered.
+    private func notifyPathWaiters(for destinationHash: Data) {
+        if let waiters = pathResponseWaiters.removeValue(forKey: destinationHash) {
+            for waiter in waiters {
+                waiter.resume(returning: true)
+            }
+        }
     }
 
     // MARK: - Maintenance

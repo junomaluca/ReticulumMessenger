@@ -205,6 +205,8 @@ public actor Reticulum {
         case .tcpServer, .udp:
             // Not yet implemented
             return nil
+        case .autoInterface:
+            return AutoInterface(name: config.name)
         }
     }
 

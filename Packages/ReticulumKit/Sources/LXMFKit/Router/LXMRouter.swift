@@ -33,6 +33,18 @@ public actor LXMRouter {
     /// Pending outbound messages.
     private var outboundQueue: [Data: LXMessage] = [:]
 
+    /// Failed messages queued for retry.
+    private var retryQueue: [LXMessage] = []
+
+    /// Maximum number of delivery retries per message.
+    private let maxRetries = 3
+
+    /// Retry interval in seconds.
+    private let retryInterval: TimeInterval = 30.0
+
+    /// Retry processing task.
+    private var retryTask: Task<Void, Never>?
+
     /// Message handlers.
     private var messageHandlers: [(LXMessage) -> Void] = []
 
@@ -87,6 +99,68 @@ public actor LXMRouter {
         }
     }
 
+    // MARK: - Retry Queue
+
+    /// Queue a failed message for retry delivery.
+    private func queueForRetry(_ message: LXMessage) {
+        var msg = message
+        msg.retryCount = (msg.retryCount ?? 0) + 1
+
+        if (msg.retryCount ?? 0) <= maxRetries {
+            retryQueue.append(msg)
+            startRetryProcessor()
+        } else {
+            msg.state = .failed
+            outboundQueue[msg.id] = msg
+            notifyDeliveryUpdate(DeliveryUpdate(
+                messageId: msg.id,
+                state: .failed,
+                timestamp: Date()
+            ))
+        }
+    }
+
+    /// Start the background retry processor if not already running.
+    private func startRetryProcessor() {
+        guard retryTask == nil else { return }
+        retryTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64((self?.retryInterval ?? 30.0) * 1_000_000_000))
+                guard !Task.isCancelled else { break }
+                await self?.processRetryQueue()
+            }
+        }
+    }
+
+    /// Process pending retry messages.
+    private func processRetryQueue() async {
+        guard !retryQueue.isEmpty else {
+            retryTask?.cancel()
+            retryTask = nil
+            return
+        }
+
+        let batch = retryQueue
+        retryQueue.removeAll()
+
+        for message in batch {
+            do {
+                try await deliverDirect(message)
+                var msg = message
+                msg.state = .sent
+                outboundQueue[msg.id] = msg
+                notifyDeliveryUpdate(DeliveryUpdate(
+                    messageId: msg.id,
+                    state: .sent,
+                    timestamp: Date()
+                ))
+            } catch {
+                // Re-queue if still under retry limit
+                queueForRetry(message)
+            }
+        }
+    }
+
     // MARK: - Sending
 
     /// Send an LXMF message.
@@ -115,15 +189,16 @@ public actor LXMRouter {
         } catch {
             // Fall back to propagation if configured
             if let propNode = propagationNode {
-                try await deliverViaPropagation(msg, node: propNode)
+                do {
+                    try await deliverViaPropagation(msg, node: propNode)
+                } catch {
+                    // Queue for retry instead of immediately failing
+                    queueForRetry(msg)
+                    throw error
+                }
             } else {
-                msg.state = .failed
-                outboundQueue[msg.id] = msg
-                notifyDeliveryUpdate(DeliveryUpdate(
-                    messageId: msg.id,
-                    state: .failed,
-                    timestamp: Date()
-                ))
+                // Queue for retry instead of immediately failing
+                queueForRetry(msg)
                 throw error
             }
         }
@@ -132,16 +207,16 @@ public actor LXMRouter {
     }
 
     /// Attempt direct delivery via a link.
+    /// Uses transport's waitForPath() with proper timeout instead of a fixed sleep.
     private func deliverDirect(_ message: LXMessage) async throws {
         let destHash = message.destinationHash
 
-        // Check if we have a path
+        // Check if we have a path, request one if not
         let hasPath = await reticulum.transport.hasPath(to: destHash)
         if !hasPath {
             try await reticulum.transport.requestPath(to: destHash)
-            // Wait briefly for path response
-            try await Task.sleep(nanoseconds: 2_000_000_000)
-            let pathFound = await reticulum.transport.hasPath(to: destHash)
+            // Wait for path response with timeout (improved from fixed 2s sleep)
+            let pathFound = await reticulum.transport.waitForPath(to: destHash, timeout: 10.0)
             if !pathFound {
                 throw LXMFError.noRoute
             }

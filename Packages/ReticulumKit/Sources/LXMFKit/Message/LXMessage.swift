@@ -84,6 +84,9 @@ public struct LXMessage: Identifiable, Sendable {
     /// File attachments.
     public var attachments: [LXMFAttachment]
 
+    /// Number of delivery retry attempts (not serialized).
+    public var retryCount: Int?
+
     /// Add an attachment to this message.
     public mutating func addAttachment(_ attachment: LXMFAttachment) {
         attachments.append(attachment)

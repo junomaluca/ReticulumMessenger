@@ -170,16 +170,31 @@ public final class RNSLink: @unchecked Sendable {
     // MARK: - Handshake Completion (Initiator)
 
     /// Complete the handshake with proof data from the responder.
+    /// The proof contains the responder's ephemeral public key and a signature.
+    /// We perform ECDH to derive the shared secret and then derive link keys.
     public func completeHandshake(proofData: Data) throws {
         guard side == .initiator, status == .handshake else {
             throw RNSLinkError.invalidState
         }
 
-        // In a full implementation, verify the proof and derive shared keys
-        // For now, derive keys from the ephemeral exchange
-        if let shared = sharedSecret {
-            deriveKeys(from: shared)
+        // Proof must contain at least the responder's ephemeral public key (32 bytes)
+        guard proofData.count >= RNS.keySize else {
+            throw RNSLinkError.handshakeFailed
         }
+
+        // Extract responder's ephemeral public key from proof data
+        let responderPubBytes = proofData.prefix(RNS.keySize)
+        let responderEphemeralPub = try Curve25519.KeyAgreement.PublicKey(
+            rawRepresentation: responderPubBytes
+        )
+
+        // Perform ECDH: our ephemeral private × their ephemeral public
+        let shared = try RNSCrypto.x25519(
+            privateKey: ephemeralKey,
+            publicKey: responderEphemeralPub
+        )
+        self.sharedSecret = shared
+        deriveKeys(from: shared)
 
         status = .active
         establishedAt = Date()

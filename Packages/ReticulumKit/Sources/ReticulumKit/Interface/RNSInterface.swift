@@ -71,6 +71,7 @@ public struct RNSInterfaceConfig: Codable, Sendable {
         case tcpClient = "TCPClientInterface"
         case tcpServer = "TCPServerInterface"
         case udp = "UDPInterface"
+        case autoInterface = "AutoInterface"
     }
 
     public init(

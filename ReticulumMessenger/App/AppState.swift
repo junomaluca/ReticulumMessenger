@@ -3,6 +3,7 @@
 // Central app state coordinating the Reticulum stack, LXMF router, and UI.
 
 import SwiftUI
+import Network
 import ReticulumKit
 import LXMFKit
 
@@ -49,6 +50,18 @@ final class AppState: ObservableObject {
     private var periodicUpdateTask: Task<Void, Never>?
     private var rnodeScanTask: Task<Void, Never>?
     private var discoveredRNodeIds: Set<UUID> = []
+
+    // MARK: - iOS Resilience (from runcore & Columba-iOS research)
+
+    /// Network path monitor — detects connectivity changes (WiFi ↔ cellular, etc.)
+    private var pathMonitor: NWPathMonitor?
+    private let pathMonitorQueue = DispatchQueue(label: "com.reticulummessenger.pathmonitor")
+
+    /// Whether the app is currently in the foreground.
+    private var isInForeground = true
+
+    /// Timestamp of last background transition (for resume delay calculation).
+    private var lastBackgroundTime: Date?
 
     // MARK: - Initialization
 
@@ -123,8 +136,17 @@ final class AppState: ObservableObject {
             networkStatus = .connected
             isInitialized = true
 
+            // Start interface health watchdog (from runcore research)
+            await rns.transport.startWatchdog()
+
             // Start periodic UI updates
             startPeriodicUpdates()
+
+            // Start network path monitoring (from Columba-iOS research)
+            startPathMonitor()
+
+            // Set up app lifecycle observers for suspend/resume handling
+            setupLifecycleObservers()
 
             // Start telemetry if enabled
             if locationSharingEnabled {
@@ -498,6 +520,136 @@ final class AppState: ObservableObject {
                 // Purge expired disappearing messages
                 purgeExpiredMessages()
             }
+        }
+    }
+
+    // MARK: - App Lifecycle (iOS Resilience)
+
+    /// Set up observers for app lifecycle transitions.
+    /// Critical for iOS: sockets go half-dead after suspend/resume.
+    /// Learned from runcore: ALWAYS force-reconnect TCP on resume.
+    private func setupLifecycleObservers() {
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleAppWillResignActive()
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.handleAppDidBecomeActive()
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleAppDidEnterBackground()
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.handleAppWillEnterForeground()
+            }
+        }
+    }
+
+    private func handleAppWillResignActive() {
+        isInForeground = false
+        lastBackgroundTime = Date()
+    }
+
+    private func handleAppDidEnterBackground() {
+        // Stop the interface watchdog to save battery
+        Task {
+            await reticulum?.transport.stopWatchdog()
+        }
+    }
+
+    /// Handle app returning to foreground. From runcore research:
+    /// iOS leaves TCP sockets half-dead after suspend. Force-reconnect
+    /// ALL TCP interfaces regardless of their apparent state. Wait 400ms
+    /// after teardown before re-establishing (iOS needs time to release sockets).
+    private func handleAppWillEnterForeground() async {
+        guard let rns = reticulum else { return }
+
+        networkStatus = .connecting
+
+        // Force-reconnect all TCP interfaces (runcore lesson: always kick on resume)
+        await rns.transport.forceReconnectAll()
+
+        // Restart the watchdog
+        await rns.transport.startWatchdog()
+
+        // Brief delay for interfaces to stabilize (runcore uses up to 6s for TCP)
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+
+        // Refresh status
+        await refreshNetworkStatus()
+
+        // Re-announce if auto-announce is enabled (from runcore: announce
+        // after interfaces come online, not immediately on resume)
+        if autoAnnounceEnabled {
+            let name = storageService?.loadDisplayName()
+            try? await messengerService?.announce(displayName: name)
+        }
+    }
+
+    private func handleAppDidBecomeActive() async {
+        isInForeground = true
+        // Trigger an immediate refresh
+        await refreshNetworkStatus()
+    }
+
+    // MARK: - Network Path Monitor
+
+    /// Start monitoring network path changes. Uses NWPathMonitor to detect
+    /// WiFi ↔ cellular transitions, VPN changes, etc. and trigger interface
+    /// reconnection. From Columba-iOS research.
+    private func startPathMonitor() {
+        pathMonitor?.cancel()
+        let monitor = NWPathMonitor()
+        self.pathMonitor = monitor
+
+        monitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor [weak self] in
+                guard let self = self, self.isInitialized else { return }
+                await self.handlePathChange(path)
+            }
+        }
+        monitor.start(queue: pathMonitorQueue)
+    }
+
+    /// Handle a network path change. When the network path changes (e.g.,
+    /// WiFi drops and cellular kicks in), force-reconnect interfaces.
+    private func handlePathChange(_ path: NWPath) async {
+        switch path.status {
+        case .satisfied:
+            // Network available — reconnect if we were disconnected
+            if networkStatus != .connected {
+                networkStatus = .connecting
+                await reticulum?.transport.forceReconnectAll()
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                await refreshNetworkStatus()
+            }
+        case .unsatisfied:
+            networkStatus = .disconnected
+        case .requiresConnection:
+            networkStatus = .connecting
+        @unknown default:
+            break
         }
     }
 
