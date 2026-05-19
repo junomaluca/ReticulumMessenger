@@ -192,7 +192,7 @@ struct AudioRecorderView: View {
                 } label: {
                     Image(systemName: recorder.isRecording ? "stop.circle.fill" : "mic.circle.fill")
                         .font(.system(size: 64))
-                        .foregroundStyle(recorder.isRecording ? .red : .accentColor)
+                        .foregroundStyle(recorder.isRecording ? Color.red : Color.accentColor)
                 }
             }
         }
