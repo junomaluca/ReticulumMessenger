@@ -6,6 +6,7 @@ import SwiftUI
 /// Compact network status indicator for the navigation bar.
 struct StatusIndicator: View {
     let status: NetworkStatus
+    @State private var isPulsing = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -16,12 +17,18 @@ struct StatusIndicator: View {
                     if status == .connecting {
                         Circle()
                             .stroke(status.color, lineWidth: 1.5)
-                            .scaleEffect(1.8)
-                            .opacity(0)
-                            .animation(
-                                .easeOut(duration: 1.2).repeatForever(autoreverses: false),
-                                value: UUID()
-                            )
+                            .scaleEffect(isPulsing ? 2.0 : 1.0)
+                            .opacity(isPulsing ? 0 : 0.8)
+                    }
+                }
+                .onChange(of: status) { _, newStatus in
+                    isPulsing = newStatus == .connecting
+                }
+                .onAppear {
+                    if status == .connecting {
+                        withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) {
+                            isPulsing = true
+                        }
                     }
                 }
 

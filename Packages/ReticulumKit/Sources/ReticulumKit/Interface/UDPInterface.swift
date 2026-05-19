@@ -53,7 +53,8 @@ extension UDPInterface: RNSInterface {
     public func connect() async throws {
         // Set up listener
         let params = NWParameters.udp
-        if let listener = try? NWListener(using: params, on: NWEndpoint.Port(rawValue: listenPort)!) {
+        if let listenNWPort = NWEndpoint.Port(rawValue: listenPort),
+           let listener = try? NWListener(using: params, on: listenNWPort) {
             self.listener = listener
             listener.newConnectionHandler = { [weak self] conn in
                 self?.handleIncoming(conn)
@@ -63,9 +64,12 @@ extension UDPInterface: RNSInterface {
 
         // Set up sender if host specified
         if let host = host {
+            guard let sendPort = NWEndpoint.Port(rawValue: port) else {
+                throw UDPInterfaceError.notConnected
+            }
             let endpoint = NWEndpoint.hostPort(
                 host: NWEndpoint.Host(host),
-                port: NWEndpoint.Port(rawValue: port)!
+                port: sendPort
             )
             let conn = NWConnection(to: endpoint, using: .udp)
             self.connection = conn

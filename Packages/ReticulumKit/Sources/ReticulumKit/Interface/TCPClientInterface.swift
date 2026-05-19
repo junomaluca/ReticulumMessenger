@@ -107,9 +107,12 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
     private func establishConnection() async throws {
         status = .connecting
 
+        guard let nwPort = NWEndpoint.Port(rawValue: port) else {
+            throw TCPInterfaceError.connectionFailed("Invalid port: \(port)")
+        }
         let endpoint = NWEndpoint.hostPort(
             host: NWEndpoint.Host(host),
-            port: NWEndpoint.Port(rawValue: port)!
+            port: nwPort
         )
 
         let params = NWParameters.tcp

@@ -214,7 +214,7 @@ struct MessageView: View {
                         to: conversation.peerHash
                     )
                 } catch {
-                    // Message will show as failed
+                    markLastOutgoingAsFailed()
                 }
                 isSending = false
             }
@@ -227,7 +227,7 @@ struct MessageView: View {
                 do {
                     try await appState.sendMessage(content: content, to: conversation.peerHash)
                 } catch {
-                    // Message will show as failed
+                    markLastOutgoingAsFailed()
                 }
                 isSending = false
             }
@@ -267,10 +267,21 @@ struct MessageView: View {
                 appState.conversations[idx].messages[i].isRead = true
             }
         }
+        // Persist read state
+        appState.storageService?.saveConversations(appState.conversations)
         // Clear notifications for this conversation
         NotificationService.shared.clearNotifications(for: conversation.peerHexHash)
         let totalUnread = appState.conversations.reduce(0) { $0 + $1.unreadCount }
         NotificationService.shared.updateBadgeCount(totalUnread)
+    }
+
+    private func markLastOutgoingAsFailed() {
+        guard let idx = appState.conversations.firstIndex(where: { $0.id == conversation.id }) else { return }
+        if let lastIdx = appState.conversations[idx].messages.indices.last,
+           !appState.conversations[idx].messages[lastIdx].isIncoming,
+           appState.conversations[idx].messages[lastIdx].state == .pending {
+            appState.conversations[idx].messages[lastIdx].state = .failed
+        }
     }
 
     private func mimeType(for url: URL) -> String {

@@ -15,6 +15,9 @@ actor MessengerService {
     private let router: LXMRouter
     private let storage: StorageService
 
+    /// Cached delivery destination to avoid re-creating and overwriting callbacks.
+    private var cachedDeliveryDestination: RNSDestination?
+
     // MARK: - Initialization
 
     init(reticulum: Reticulum, router: LXMRouter, storage: StorageService) {
@@ -53,12 +56,21 @@ actor MessengerService {
     }
 
     /// Announce presence on the network.
+    /// Reuses the existing delivery destination to avoid overwriting router callbacks.
     func announce(displayName: String?) async throws {
-        guard let identity = await reticulum.localIdentity else { return }
-        let destination = try await reticulum.createDestination(
-            appName: LXMRouter.appName,
-            aspects: [LXMRouter.deliveryAspect]
-        )
+        let destination: RNSDestination
+
+        if let cached = cachedDeliveryDestination {
+            destination = cached
+        } else {
+            // Get the delivery destination from the router instead of creating a new one
+            destination = try await reticulum.createDestination(
+                appName: LXMRouter.appName,
+                aspects: [LXMRouter.deliveryAspect]
+            )
+            cachedDeliveryDestination = destination
+        }
+
         let appData = displayName.map { Data($0.utf8) }
         try await reticulum.announce(destination: destination, appData: appData)
     }

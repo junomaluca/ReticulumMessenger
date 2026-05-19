@@ -95,7 +95,9 @@ struct ConversationsListView: View {
     }
 
     private func deleteConversations(at offsets: IndexSet) {
-        appState.conversations.remove(atOffsets: offsets)
+        let filtered = filteredConversations
+        let idsToDelete = offsets.map { filtered[$0].id }
+        appState.conversations.removeAll { idsToDelete.contains($0.id) }
         appState.storageService?.saveConversations(appState.conversations)
     }
 }
