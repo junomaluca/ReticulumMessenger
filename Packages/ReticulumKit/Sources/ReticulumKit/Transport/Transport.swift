@@ -432,9 +432,9 @@ public actor RNSTransport {
             pathResponseWaiters[destinationHash]?[waiterID] = continuation
 
             // Timeout task — only cancels this specific waiter
-            Task {
+            Task { [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                await self.cancelPathWaiter(for: destinationHash, waiterID: waiterID)
+                await self?.cancelPathWaiter(for: destinationHash, waiterID: waiterID)
             }
         }
     }

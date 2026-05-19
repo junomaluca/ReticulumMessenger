@@ -165,7 +165,9 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
         self.connection = conn
 
         return try await withCheckedThrowingContinuation { continuation in
-            var resumed = false
+            // Protected with os_unfair_lock to safely guard one-shot continuation
+            // across NWConnection's concurrent state callbacks.
+            let resumeOnce = ResumeOnce(continuation: continuation)
 
             conn.stateUpdateHandler = { [weak self] state in
                 guard let self = self else { return }
@@ -179,18 +181,12 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
                     self.lastActivityTime = Date()
                     self.delegate?.interfaceDidConnect(self)
                     self.startReceiving()
-                    if !resumed {
-                        resumed = true
-                        continuation.resume()
-                    }
+                    resumeOnce.resume()
 
                 case .failed(let error):
                     self.status = .error(error.localizedDescription)
                     self.delegate?.interfaceDidDisconnect(self, error: error)
-                    if !resumed {
-                        resumed = true
-                        continuation.resume(throwing: error)
-                    } else {
+                    if !resumeOnce.resume(throwing: error) {
                         self.scheduleReconnect()
                     }
 
@@ -310,6 +306,42 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
                 self.scheduleReconnect()
             }
         }
+    }
+}
+
+// MARK: - ResumeOnce
+
+/// Thread-safe one-shot continuation wrapper.
+/// Ensures a `CheckedContinuation` is resumed at most once, even when
+/// `NWConnection.stateUpdateHandler` fires from multiple threads.
+private final class ResumeOnce: @unchecked Sendable {
+    private var continuation: CheckedContinuation<Void, Error>?
+    private let lock = NSLock()
+
+    init(continuation: CheckedContinuation<Void, Error>) {
+        self.continuation = continuation
+    }
+
+    /// Resume with success. Returns `true` if this was the first call.
+    @discardableResult
+    func resume() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let c = continuation else { return false }
+        continuation = nil
+        c.resume()
+        return true
+    }
+
+    /// Resume with an error. Returns `true` if this was the first call.
+    @discardableResult
+    func resume(throwing error: Error) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let c = continuation else { return false }
+        continuation = nil
+        c.resume(throwing: error)
+        return true
     }
 }
 

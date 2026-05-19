@@ -164,14 +164,14 @@ struct PeerMapPin: View {
         VStack(spacing: 0) {
             ZStack {
                 Circle()
-                    .fill(.accent)
+                    .fill(Color.accentColor)
                     .frame(width: 32, height: 32)
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .font(.system(size: 14))
                     .foregroundStyle(.white)
             }
             Triangle()
-                .fill(.accent)
+                .fill(Color.accentColor)
                 .frame(width: 10, height: 6)
         }
     }
@@ -203,7 +203,7 @@ struct PeerLocationDetailView: View {
                         VStack(spacing: 8) {
                             Image(systemName: "antenna.radiowaves.left.and.right.circle.fill")
                                 .font(.system(size: 48))
-                                .foregroundStyle(.accent)
+                                .foregroundStyle(Color.accentColor)
                             Text(peer.displayName ?? "Unknown Peer")
                                 .font(.title3.bold())
                             Text(peer.peerHash)

@@ -28,7 +28,7 @@ struct MessageBubble: View {
                 VStack(alignment: message.isIncoming ? .leading : .trailing, spacing: 4) {
                     Text(message.content)
                         .font(.body)
-                        .foregroundStyle(message.isIncoming ? .primary : .white)
+                        .foregroundColor(message.isIncoming ? .primary : .white)
 
                     HStack(spacing: 4) {
                         if disappearingDuration != .off {
@@ -49,7 +49,7 @@ struct MessageBubble: View {
                                 .font(.caption2)
                         }
                     }
-                    .foregroundStyle(
+                    .foregroundColor(
                         message.isIncoming ? .secondary : .white.opacity(0.7)
                     )
                 }
