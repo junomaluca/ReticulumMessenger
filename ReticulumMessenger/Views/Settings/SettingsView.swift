@@ -85,7 +85,7 @@ struct SettingsView: View {
                 }
 
                 // Mesh Features
-                Section("Mesh Features") {
+                Section {
                     Toggle("Auto-Announce", isOn: Binding(
                         get: { appState.autoAnnounceEnabled },
                         set: { newValue in
@@ -115,6 +115,8 @@ struct SettingsView: View {
                             Task { await appState.setPropagationNode(newValue) }
                         }
                     ))
+                } header: {
+                    Text("Mesh Features")
                 } footer: {
                     Text("Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers.")
                 }

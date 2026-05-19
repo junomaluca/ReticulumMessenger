@@ -38,7 +38,7 @@ struct IdentityExportView: View {
             }
 
             // Export
-            Section("Export Identity") {
+            Section {
                 SecureField("Password", text: $password)
                     .textContentType(.newPassword)
                 SecureField("Confirm Password", text: $confirmPassword)
@@ -50,17 +50,21 @@ struct IdentityExportView: View {
                     Label("Export Encrypted Backup", systemImage: "square.and.arrow.up")
                 }
                 .disabled(password.isEmpty || password != confirmPassword || password.count < 6)
+            } header: {
+                Text("Export Identity")
             } footer: {
                 Text("Minimum 6 characters. Use a strong, unique password.")
             }
 
             // Import
-            Section("Import Identity") {
+            Section {
                 Button {
                     showImportPicker = true
                 } label: {
                     Label("Import from File", systemImage: "square.and.arrow.down")
                 }
+            } header: {
+                Text("Import Identity")
             } footer: {
                 Text("Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity.")
             }
