@@ -1,0 +1,55 @@
+# Xcode
+*.xcodeproj/
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+*.xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+build/
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/ReticulumKit/.build/
+Package.resolved
+
+# CocoaPods (if ever used)
+Pods/
+
+# Generated Xcode project
+*.xcodeproj
+*.xcworkspace
+
+# OS
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
+
+# Secrets
+*.p12
+*.mobileprovision
+*.cer
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Environment
+.env
+.env.local

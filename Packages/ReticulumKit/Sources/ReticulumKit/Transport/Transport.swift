@@ -1,0 +1,359 @@
+// SPDX-License-Identifier: MIT
+// ReticulumKit — Transport.swift
+// Path management and packet routing for the Reticulum network.
+
+import Foundation
+
+/// Manages path discovery, caching, and packet routing across interfaces.
+/// The transport layer is responsible for getting packets from source to destination
+/// across potentially multiple hops and interfaces.
+public actor RNSTransport {
+
+    // MARK: - Types
+
+    /// A cached path to a destination.
+    public struct PathEntry: Sendable {
+        public let destinationHash: Data
+        public let nextHop: Data?
+        public let interfaceName: String
+        public let hops: UInt8
+        public let expires: Date
+        public let announceData: Data?
+
+        public var isExpired: Bool {
+            Date() > expires
+        }
+    }
+
+    /// An announce handler registration.
+    struct AnnounceHandler {
+        let appName: String
+        let callback: @Sendable (Data, RNSIdentity, Data?) -> Void
+    }
+
+    // MARK: - Properties
+
+    /// Registered network interfaces.
+    private var interfaces: [String: any RNSInterface] = [:]
+
+    /// Path table: destination hash -> path entry.
+    private var pathTable: [Data: PathEntry] = [:]
+
+    /// Registered destinations (local endpoints).
+    private var destinations: [Data: RNSDestination] = [:]
+
+    /// Registered announce handlers.
+    private var announceHandlers: [AnnounceHandler] = []
+
+    /// Packet deduplication cache.
+    private var recentPacketHashes: Set<Data> = []
+    private var packetHashTimestamps: [(hash: Data, time: Date)] = []
+
+    /// Pending path requests.
+    private var pendingPathRequests: [Data: Date] = [:]
+
+    /// Packet receipts awaiting proof.
+    private var pendingReceipts: [Data: RNSPacketReceipt] = [:]
+
+    /// Active links.
+    private var activeLinks: [Data: RNSLink] = [:]
+
+    /// Maximum age for deduplication cache entries.
+    private let deduplicationWindow: TimeInterval = 60.0
+
+    /// Maximum age for path entries.
+    private let pathTimeout: TimeInterval = 3600.0
+
+    // MARK: - Initialization
+
+    public init() {}
+
+    // MARK: - Interface Management
+
+    /// Register a network interface.
+    public func addInterface(_ interface: any RNSInterface) {
+        interfaces[interface.name] = interface
+    }
+
+    /// Remove a network interface.
+    public func removeInterface(name: String) {
+        interfaces.removeValue(forKey: name)
+    }
+
+    /// Get all registered interfaces.
+    public func getInterfaces() -> [any RNSInterface] {
+        Array(interfaces.values)
+    }
+
+    // MARK: - Destination Registration
+
+    /// Register a local destination to receive packets.
+    public func registerDestination(_ destination: RNSDestination) {
+        destinations[destination.hash] = destination
+    }
+
+    /// Unregister a local destination.
+    public func deregisterDestination(_ destination: RNSDestination) {
+        destinations.removeValue(forKey: destination.hash)
+    }
+
+    // MARK: - Announce Handling
+
+    /// Register a handler for announce packets.
+    public func registerAnnounceHandler(
+        appName: String,
+        callback: @escaping @Sendable (Data, RNSIdentity, Data?) -> Void
+    ) {
+        announceHandlers.append(AnnounceHandler(appName: appName, callback: callback))
+    }
+
+    // MARK: - Path Management
+
+    /// Look up a path to a destination.
+    public func findPath(to destinationHash: Data) -> PathEntry? {
+        guard let entry = pathTable[destinationHash], !entry.isExpired else {
+            return nil
+        }
+        return entry
+    }
+
+    /// Check if a path to a destination is known.
+    public func hasPath(to destinationHash: Data) -> Bool {
+        findPath(to: destinationHash) != nil
+    }
+
+    /// Request a path to a destination from the network.
+    public func requestPath(to destinationHash: Data) async throws {
+        // Check if we already have a pending request
+        if let lastRequest = pendingPathRequests[destinationHash],
+           Date().timeIntervalSince(lastRequest) < RNS.pathRequestBlacklist {
+            return
+        }
+
+        pendingPathRequests[destinationHash] = Date()
+
+        // Create a path request packet
+        let packet = RNSPacket(
+            propagationType: .broadcast,
+            destinationType: .plain,
+            packetType: .data,
+            destinationHash: RNSCrypto.truncatedHash(Data("path.request".utf8)),
+            context: .pathResponse,
+            data: destinationHash
+        )
+
+        try await broadcastPacket(packet)
+    }
+
+    /// Register a discovered path.
+    public func registerPath(
+        destinationHash: Data,
+        nextHop: Data?,
+        interfaceName: String,
+        hops: UInt8,
+        announceData: Data? = nil
+    ) {
+        let entry = PathEntry(
+            destinationHash: destinationHash,
+            nextHop: nextHop,
+            interfaceName: interfaceName,
+            hops: hops,
+            expires: Date().addingTimeInterval(pathTimeout),
+            announceData: announceData
+        )
+
+        // Only update if this path is shorter or the existing one has expired
+        if let existing = pathTable[destinationHash], !existing.isExpired {
+            if hops < existing.hops {
+                pathTable[destinationHash] = entry
+            }
+        } else {
+            pathTable[destinationHash] = entry
+        }
+    }
+
+    /// Get all known paths.
+    public func allPaths() -> [PathEntry] {
+        Array(pathTable.values.filter { !$0.isExpired })
+    }
+
+    // MARK: - Packet Sending
+
+    /// Send a packet to a destination.
+    public func sendPacket(_ packet: RNSPacket) async throws -> RNSPacketReceipt? {
+        let raw = packet.pack()
+
+        // Check MTU
+        guard raw.count <= RNS.mtu else {
+            throw RNSPacketError.payloadTooLarge
+        }
+
+        // Try to find a specific path
+        if let path = findPath(to: packet.destinationHash),
+           let interface = interfaces[path.interfaceName] {
+            try await interface.send(raw)
+        } else {
+            // No specific path — broadcast to all interfaces
+            try await broadcastPacket(packet)
+        }
+
+        // Create receipt for data packets
+        if packet.packetType == .data {
+            let receipt = RNSPacketReceipt(
+                packetHash: packet.packetHash,
+                destinationHash: packet.destinationHash
+            )
+            pendingReceipts[packet.packetHash] = receipt
+            return receipt
+        }
+
+        return nil
+    }
+
+    /// Broadcast a packet on all online interfaces.
+    private func broadcastPacket(_ packet: RNSPacket) async throws {
+        let raw = packet.pack()
+        for (_, interface) in interfaces where interface.isOnline {
+            try? await interface.send(raw)
+        }
+    }
+
+    // MARK: - Packet Processing
+
+    /// Process an incoming packet from an interface.
+    public func processIncoming(data: Data, from interfaceName: String) {
+        guard let packet = try? RNSPacket.unpack(data) else {
+            return
+        }
+
+        // Deduplication
+        let hash = packet.packetHash
+        if recentPacketHashes.contains(hash) { return }
+        recentPacketHashes.insert(hash)
+        packetHashTimestamps.append((hash: hash, time: Date()))
+        cleanDeduplicationCache()
+
+        switch packet.packetType {
+        case .data:
+            handleDataPacket(packet, from: interfaceName)
+        case .announce:
+            handleAnnouncePacket(packet, from: interfaceName)
+        case .linkRequest:
+            handleLinkRequest(packet, from: interfaceName)
+        case .proof:
+            handleProof(packet)
+        }
+    }
+
+    // MARK: - Packet Handlers
+
+    private func handleDataPacket(_ packet: RNSPacket, from interfaceName: String) {
+        // Check if this is for a local destination
+        if let destination = destinations[packet.destinationHash] {
+            destination.packetCallback?(packet)
+        }
+
+        // Check if this is for an active link
+        if let link = activeLinks[packet.destinationHash] {
+            link.receivePacket(packet)
+        }
+    }
+
+    private func handleAnnouncePacket(_ packet: RNSPacket, from interfaceName: String) {
+        // Parse announce data to extract identity
+        let data = packet.data
+        guard data.count >= RNS.identityKeySize + 32 + 10 + 64 else { return }
+
+        let pubKeyBytes = data.prefix(RNS.identityKeySize)
+        guard let identity = try? RNSIdentity(publicKeyBytes: Data(pubKeyBytes)) else { return }
+
+        // Register path from this announce
+        registerPath(
+            destinationHash: packet.destinationHash,
+            nextHop: nil,
+            interfaceName: interfaceName,
+            hops: packet.hops,
+            announceData: packet.data
+        )
+
+        // Extract optional app data (after pubkey + namehash + randomhash + signature)
+        let minSize = RNS.identityKeySize + 32 + 10 + 64
+        let appData: Data? = data.count > minSize ? Data(data[minSize...]) : nil
+
+        // Notify announce handlers
+        for handler in announceHandlers {
+            handler.callback(packet.destinationHash, identity, appData)
+        }
+    }
+
+    private func handleLinkRequest(_ packet: RNSPacket, from interfaceName: String) {
+        if let destination = destinations[packet.destinationHash] {
+            // Create a link for this request
+            if let link = try? RNSLink(
+                destination: destination,
+                requestData: packet.data,
+                interfaceName: interfaceName
+            ) {
+                activeLinks[link.linkHash] = link
+                destination.linkCallback?(link)
+            }
+        }
+    }
+
+    private func handleProof(_ packet: RNSPacket) {
+        // Find and resolve matching receipt
+        if let receipt = pendingReceipts[packet.destinationHash] {
+            receipt.prove()
+            pendingReceipts.removeValue(forKey: packet.destinationHash)
+        }
+    }
+
+    // MARK: - Link Management
+
+    /// Register an active link.
+    public func registerLink(_ link: RNSLink) {
+        activeLinks[link.linkHash] = link
+    }
+
+    /// Remove a link.
+    public func removeLink(_ link: RNSLink) {
+        activeLinks.removeValue(forKey: link.linkHash)
+    }
+
+    // MARK: - Maintenance
+
+    /// Remove expired entries from the deduplication cache.
+    private func cleanDeduplicationCache() {
+        let cutoff = Date().addingTimeInterval(-deduplicationWindow)
+        while let first = packetHashTimestamps.first, first.time < cutoff {
+            recentPacketHashes.remove(first.hash)
+            packetHashTimestamps.removeFirst()
+        }
+    }
+
+    /// Clean expired paths from the path table.
+    public func cleanExpiredPaths() {
+        pathTable = pathTable.filter { !$0.value.isExpired }
+    }
+
+    /// Get transport statistics.
+    public func statistics() -> TransportStatistics {
+        TransportStatistics(
+            interfaceCount: interfaces.count,
+            onlineInterfaces: interfaces.values.filter { $0.isOnline }.count,
+            knownPaths: pathTable.count,
+            activeLinks: activeLinks.count,
+            pendingReceipts: pendingReceipts.count
+        )
+    }
+}
+
+// MARK: - Statistics
+
+public struct TransportStatistics: Sendable {
+    public let interfaceCount: Int
+    public let onlineInterfaces: Int
+    public let knownPaths: Int
+    public let activeLinks: Int
+    public let pendingReceipts: Int
+}

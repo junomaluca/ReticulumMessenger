@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT
+// ReticulumMessenger — MainTabView.swift
+
+import SwiftUI
+
+struct MainTabView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var selectedTab = 0
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            ConversationsListView()
+                .tabItem {
+                    Label("Messages", systemImage: "bubble.left.and.bubble.right")
+                }
+                .tag(0)
+                .badge(totalUnread)
+
+            NetworkStatusView()
+                .tabItem {
+                    Label("Network", systemImage: "network")
+                }
+                .tag(1)
+
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
+                }
+                .tag(2)
+        }
+        .tint(.accentColor)
+    }
+
+    private var totalUnread: Int {
+        appState.conversations.reduce(0) { $0 + $1.unreadCount }
+    }
+}
