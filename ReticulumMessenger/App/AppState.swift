@@ -50,6 +50,7 @@ final class AppState: ObservableObject {
     private var periodicUpdateTask: Task<Void, Never>?
     private var rnodeScanTask: Task<Void, Never>?
     private var discoveredRNodeIds: Set<UUID> = []
+    private var savedInterfaceConfigs: [RNSInterfaceConfig] = []
 
     // MARK: - iOS Resilience (from runcore & Columba-iOS research)
 
@@ -79,6 +80,7 @@ final class AppState: ObservableObject {
         // Load saved conversations and settings
         conversations = storage.loadConversations()
         let savedInterfaces = storage.loadInterfaceConfigs()
+        self.savedInterfaceConfigs = savedInterfaces
 
         // Load user preferences
         loadUserPreferences()
@@ -227,6 +229,7 @@ final class AppState: ObservableObject {
     func addTCPInterface(name: String, host: String, port: UInt16) async throws {
         guard let rns = reticulum else { return }
         try await rns.connectTCP(name: name, host: host, port: port)
+        savedInterfaceConfigs.append(RNSInterfaceConfig(name: name, type: .tcpClient, host: host, port: port))
         await refreshInterfaces()
         saveCurrentInterfaces()
     }
@@ -237,6 +240,7 @@ final class AppState: ObservableObject {
         if let rns = reticulum {
             await rns.transport.registerInterface(udp)
         }
+        savedInterfaceConfigs.append(RNSInterfaceConfig(name: name, type: .udp, host: host, port: port))
         await refreshInterfaces()
         saveCurrentInterfaces()
     }
@@ -260,7 +264,7 @@ final class AppState: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 guard let self, self.isRNodeScanning else { break }
-                let devices = await rnode.discoveredDevices
+                let devices = rnode.discoveredDevices
                 for device in devices {
                     if !self.discoveredRNodeIds.contains(device.id) {
                         self.discoveredRNodeIds.insert(device.id)
@@ -563,7 +567,7 @@ final class AppState: ObservableObject {
 
                 // Update RNode stats
                 if let rnode = rnodeInterface, connectedRNode != nil {
-                    let stats = await rnode.radioStats
+                    let stats = rnode.radioStats
                     connectedRNode?.lastRSSI = stats.rssi
                     connectedRNode?.lastSNR = stats.snr
                     connectedRNode?.batteryLevel = stats.battery
@@ -727,8 +731,7 @@ final class AppState: ObservableObject {
     }
 
     private func saveCurrentInterfaces() {
-        let configs = interfaces.map { RNSInterfaceConfig(from: $0) }
-        storageService?.saveInterfaceConfigs(configs)
+        storageService?.saveInterfaceConfigs(savedInterfaceConfigs)
     }
 
     // MARK: - User Preferences

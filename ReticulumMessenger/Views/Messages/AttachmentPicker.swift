@@ -35,7 +35,7 @@ struct AttachmentMenu: View {
         } label: {
             Image(systemName: "plus.circle.fill")
                 .font(.title3)
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
         }
     }
 }
