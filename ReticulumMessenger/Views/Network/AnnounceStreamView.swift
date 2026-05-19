@@ -42,6 +42,7 @@ struct AnnounceStreamView: View {
 // MARK: - Announce Row
 
 struct AnnounceRow: View {
+    @EnvironmentObject var appState: AppState
     let announce: AnnounceEntry
 
     var body: some View {
@@ -84,9 +85,9 @@ struct AnnounceRow: View {
                 Label("Copy Hash", systemImage: "doc.on.doc")
             }
 
-            if announce.type == .lxmf {
+            if announce.type == .lxmf, let destHash = announce.destinationHash {
                 Button {
-                    // Start conversation action handled by parent
+                    appState.createConversation(with: destHash, name: announce.displayName)
                 } label: {
                     Label("Send Message", systemImage: "bubble.left")
                 }

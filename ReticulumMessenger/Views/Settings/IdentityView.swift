@@ -5,7 +5,8 @@ import SwiftUI
 
 struct IdentityView: View {
     @EnvironmentObject var appState: AppState
-    @State private var showCopied = false
+    @State private var identityCopied = false
+    @State private var deliveryCopied = false
 
     var body: some View {
         List {
@@ -33,15 +34,15 @@ struct IdentityView: View {
 
                     Button {
                         UIPasteboard.general.string = appState.localIdentityHash
-                        showCopied = true
+                        identityCopied = true
                         Task {
                             try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            showCopied = false
+                            identityCopied = false
                         }
                     } label: {
                         Label(
-                            showCopied ? "Copied!" : "Copy to Clipboard",
-                            systemImage: showCopied ? "checkmark" : "doc.on.doc"
+                            identityCopied ? "Copied!" : "Copy to Clipboard",
+                            systemImage: identityCopied ? "checkmark" : "doc.on.doc"
                         )
                     }
                 }
@@ -55,15 +56,15 @@ struct IdentityView: View {
 
                     Button {
                         UIPasteboard.general.string = appState.deliveryHash
-                        showCopied = true
+                        deliveryCopied = true
                         Task {
                             try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            showCopied = false
+                            deliveryCopied = false
                         }
                     } label: {
                         Label(
-                            showCopied ? "Copied!" : "Copy to Clipboard",
-                            systemImage: showCopied ? "checkmark" : "doc.on.doc"
+                            deliveryCopied ? "Copied!" : "Copy to Clipboard",
+                            systemImage: deliveryCopied ? "checkmark" : "doc.on.doc"
                         )
                     }
                 }

@@ -64,11 +64,12 @@ final class TelemetryService: NSObject, ObservableObject {
         var telemetry = DeviceTelemetry()
         telemetry.timestamp = Date()
 
-        // Battery
+        // Battery — enable monitoring only while reading, then disable to save power
         let device = UIDevice.current
         device.isBatteryMonitoringEnabled = true
         telemetry.batteryLevel = device.batteryLevel >= 0 ? device.batteryLevel : nil
         telemetry.batteryCharging = device.batteryState == .charging || device.batteryState == .full
+        device.isBatteryMonitoringEnabled = false
 
         // Location
         if let location = currentLocation {

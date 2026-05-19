@@ -22,7 +22,14 @@ struct StatusIndicator: View {
                     }
                 }
                 .onChange(of: status) { _, newStatus in
-                    isPulsing = newStatus == .connecting
+                    if newStatus == .connecting {
+                        isPulsing = false
+                        withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) {
+                            isPulsing = true
+                        }
+                    } else {
+                        isPulsing = false
+                    }
                 }
                 .onAppear {
                     if status == .connecting {

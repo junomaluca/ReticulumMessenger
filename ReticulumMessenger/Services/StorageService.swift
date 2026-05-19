@@ -4,6 +4,7 @@
 
 import Foundation
 import CryptoKit
+import CommonCrypto
 import ReticulumKit
 
 /// Manages local persistence of app data using UserDefaults and file storage.
@@ -109,8 +110,8 @@ final class StorageService {
 
         let data = try Data(contentsOf: url)
 
-        // Validate magic bytes
-        guard data.count > 21,
+        // Validate magic bytes and minimum size (4 magic + 1 ver + 16 salt + 28 min ChaChaPoly)
+        guard data.count >= 49,
               String(data: data.prefix(4), encoding: .utf8) == "RNID" else {
             throw StorageError.invalidBackup
         }
@@ -139,12 +140,27 @@ final class StorageService {
 
     private func deriveKey(password: String, salt: Data) -> SymmetricKey {
         let passwordData = Data(password.utf8)
-        let keyData = HKDF<SHA256>.deriveKey(
-            inputKeyMaterial: SymmetricKey(data: passwordData),
-            salt: salt,
-            outputByteCount: 32
-        )
-        return keyData
+        var derivedBytes = [UInt8](repeating: 0, count: 32)
+        let status = passwordData.withUnsafeBytes { pwBytes in
+            salt.withUnsafeBytes { saltBytes in
+                CCKeyDerivationPBKDF(
+                    CCPBKDFAlgorithm(kCCPBKDF2),
+                    pwBytes.baseAddress?.assumingMemoryBound(to: Int8.self),
+                    passwordData.count,
+                    saltBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                    salt.count,
+                    CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                    100_000, // 100k iterations
+                    &derivedBytes,
+                    32
+                )
+            }
+        }
+        guard status == kCCSuccess else {
+            // Fallback: should never happen with valid inputs
+            return SymmetricKey(data: Data(SHA256.hash(data: passwordData + salt)))
+        }
+        return SymmetricKey(data: Data(derivedBytes))
     }
 
     // MARK: - Private

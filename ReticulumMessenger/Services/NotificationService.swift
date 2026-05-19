@@ -54,7 +54,9 @@ final class NotificationService {
     }
 
     func updateBadgeCount(_ count: Int) {
-        UNUserNotificationCenter.current().setBadgeCount(count)
+        Task {
+            try? await UNUserNotificationCenter.current().setBadgeCount(count)
+        }
     }
 
     // MARK: - Haptics

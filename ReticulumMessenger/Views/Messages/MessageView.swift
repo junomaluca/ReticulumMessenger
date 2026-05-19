@@ -25,9 +25,6 @@ struct MessageView: View {
     @State private var forwardingMessage: ChatMessage?
     @State private var showForwardSheet = false
 
-    // Image viewer
-    @State private var viewerImage: UIImage?
-
     var body: some View {
         VStack(spacing: 0) {
             // Disappearing messages banner
@@ -153,8 +150,8 @@ struct MessageView: View {
                 forwardMessage(forwardingMessage, to: targetConversation)
             }
         }
-        .fullScreenCover(item: $viewerImage) { image in
-            ImageViewerView(image: image)
+        .onChange(of: currentMessages.count) { _, _ in
+            markAsRead()
         }
         .onChange(of: selectedImage) { _, newImage in
             if let image = newImage, let data = image.jpegData(compressionQuality: 0.7) {
@@ -356,12 +353,6 @@ struct MessageView: View {
         default: return "application/octet-stream"
         }
     }
-}
-
-// MARK: - UIImage Identifiable for fullScreenCover
-
-extension UIImage: @retroactive Identifiable {
-    public var id: ObjectIdentifier { ObjectIdentifier(self) }
 }
 
 // MARK: - Forward Message Sheet

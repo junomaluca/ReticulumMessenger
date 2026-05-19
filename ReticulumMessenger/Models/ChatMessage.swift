@@ -71,9 +71,9 @@ struct ChatMessage: Identifiable, Codable {
         self.isIncoming = lxMessage.isIncoming
 
         switch lxMessage.state {
-        case .sent, .delivered: self.state = .sent
+        case .sent: self.state = .sent
+        case .delivered, .received: self.state = .delivered
         case .failed: self.state = .failed
-        case .received: self.state = .delivered
         default: self.state = .pending
         }
 

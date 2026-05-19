@@ -128,8 +128,7 @@ struct NetworkStatusView: View {
                 InterfaceConfigView()
             }
             .refreshable {
-                // Trigger a refresh
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                await appState.refreshNetworkStatus()
             }
         }
     }

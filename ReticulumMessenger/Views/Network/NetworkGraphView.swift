@@ -130,14 +130,16 @@ struct NetworkGraphView: View {
     }
 
     private func drawPacketParticles(context: GraphicsContext, size: CGSize) {
-        for edge in edges where edge.isActive {
+        for (index, edge) in edges.enumerated() where edge.isActive {
             guard let from = nodes.first(where: { $0.id == edge.from }),
                   let to = nodes.first(where: { $0.id == edge.to }) else { continue }
 
             let start = CGPoint(x: from.x * size.width, y: from.y * size.height)
             let end = CGPoint(x: to.x * size.width, y: to.y * size.height)
 
-            let t = animationPhase
+            // Stagger particles so they don't all overlap
+            let offset = CGFloat(index) / max(CGFloat(edges.count), 1.0)
+            let t = (animationPhase + offset).truncatingRemainder(dividingBy: 1.0)
             let particleX = start.x + (end.x - start.x) * t
             let particleY = start.y + (end.y - start.y) * t
 
@@ -186,7 +188,9 @@ struct NetworkGraphView: View {
         let peerAngles = distributeAngles(count: appState.knownPeers.count, startAngle: 0)
         for (i, peer) in appState.knownPeers.enumerated() {
             let angle = peerAngles[i]
-            let radius: CGFloat = 0.3 + CGFloat.random(in: -0.05...0.05)
+            // Deterministic offset based on hash to avoid jitter on rebuild
+            let hashOffset = CGFloat(peer.hexHash.hashValue & 0xFF) / 255.0 * 0.06 - 0.03
+            let radius: CGFloat = 0.3 + hashOffset
             let node = GraphNode(
                 id: "peer-\(peer.hexHash)",
                 label: peer.displayName.isEmpty ? peer.shortHash : peer.displayName,
@@ -235,7 +239,6 @@ struct NetworkGraphView: View {
             legendItem(color: .accentColor, label: "You")
             legendItem(color: .green, label: "Interface")
             legendItem(color: .orange, label: "Peer")
-            legendItem(color: .purple, label: "Transport")
         }
         .font(.caption2)
         .padding(10)

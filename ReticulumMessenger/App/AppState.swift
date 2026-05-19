@@ -46,6 +46,9 @@ final class AppState: ObservableObject {
     private var lxmRouter: LXMRouter?
     private var rnodeInterface: RNodeInterface?
     private var autoAnnounceTimer: Timer?
+    private var periodicUpdateTask: Task<Void, Never>?
+    private var rnodeScanTask: Task<Void, Never>?
+    private var discoveredRNodeIds: Set<UUID> = []
 
     // MARK: - Initialization
 
@@ -196,6 +199,7 @@ final class AppState: ObservableObject {
         guard let rns = reticulum else { return }
         try await rns.connectTCP(name: name, host: host, port: port)
         await refreshInterfaces()
+        saveCurrentInterfaces()
     }
 
     func addUDPInterface(name: String, host: String?, port: UInt16, listenPort: UInt16) async throws {
@@ -205,6 +209,12 @@ final class AppState: ObservableObject {
             await rns.transport.registerInterface(udp)
         }
         await refreshInterfaces()
+        saveCurrentInterfaces()
+    }
+
+    func deleteConversation(_ conversationId: UUID) {
+        conversations.removeAll { $0.id == conversationId }
+        storageService?.saveConversations(conversations)
     }
 
     // MARK: - RNode Management
@@ -212,22 +222,29 @@ final class AppState: ObservableObject {
     func startRNodeScan(onDiscover: @escaping (RNodeInterface.DiscoveredRNode) -> Void) {
         let rnode = RNodeInterface(name: "RNode")
         self.rnodeInterface = rnode
+        discoveredRNodeIds.removeAll()
         rnode.startScanning()
         isRNodeScanning = true
 
-        // Poll for discovered devices
-        Task {
-            while isRNodeScanning {
+        rnodeScanTask?.cancel()
+        rnodeScanTask = Task { [weak self] in
+            while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
+                guard let self, self.isRNodeScanning else { break }
                 let devices = await rnode.discoveredDevices
                 for device in devices {
-                    onDiscover(device)
+                    if !self.discoveredRNodeIds.contains(device.id) {
+                        self.discoveredRNodeIds.insert(device.id)
+                        onDiscover(device)
+                    }
                 }
             }
         }
     }
 
     func stopRNodeScan() {
+        rnodeScanTask?.cancel()
+        rnodeScanTask = nil
         rnodeInterface?.stopScanning()
         isRNodeScanning = false
     }
@@ -340,6 +357,24 @@ final class AppState: ObservableObject {
         storageService?.saveConversations(conversations)
     }
 
+    // MARK: - Refresh
+
+    func refreshNetworkStatus() async {
+        await refreshInterfaces()
+        if let router = lxmRouter {
+            let peers = await router.knownPeers()
+            knownPeers = peers.map { PeerInfo(from: $0) }
+        }
+        if let rns = reticulum {
+            let stats = await rns.statistics()
+            if stats.onlineInterfaces > 0 {
+                networkStatus = .connected
+            } else {
+                networkStatus = .connecting
+            }
+        }
+    }
+
     // MARK: - Private
 
     private func handleReceivedMessage(_ message: LXMessage) {
@@ -403,9 +438,14 @@ final class AppState: ObservableObject {
             }
             conversations[idx].messages.append(chatMessage)
             conversations[idx].lastActivity = Date()
-            // Move to top (but keep pinned conversations at the top)
+            // Move to top of its section (pinned stay above unpinned)
             let conv = conversations.remove(at: idx)
-            conversations.insert(conv, at: 0)
+            if conv.isPinned {
+                conversations.insert(conv, at: 0)
+            } else {
+                let firstUnpinnedIdx = conversations.firstIndex(where: { !$0.isPinned }) ?? conversations.count
+                conversations.insert(conv, at: firstUnpinnedIdx)
+            }
         } else {
             // New conversation
             let conversation = Conversation(
@@ -427,7 +467,8 @@ final class AppState: ObservableObject {
     }
 
     private func startPeriodicUpdates() {
-        Task {
+        periodicUpdateTask?.cancel()
+        periodicUpdateTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
                 await refreshInterfaces()
@@ -477,6 +518,11 @@ final class AppState: ObservableObject {
     private func defaultInterfaces() -> [RNSInterfaceConfig] {
         // Default: no interfaces configured, user must add one
         []
+    }
+
+    private func saveCurrentInterfaces() {
+        let configs = interfaces.map { RNSInterfaceConfig(from: $0) }
+        storageService?.saveInterfaceConfigs(configs)
     }
 
     // MARK: - User Preferences
