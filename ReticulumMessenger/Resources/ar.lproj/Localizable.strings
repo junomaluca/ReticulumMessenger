@@ -1,0 +1,257 @@
+/* Arabic — ar */
+
+/* Tab Navigation */
+"Messages" = "الرسائل";
+"Map" = "الخريطة";
+"Network" = "الشبكة";
+"Settings" = "الإعدادات";
+
+/* Conversations */
+"No Conversations" = "لا توجد محادثات";
+"Start a new conversation by tapping the compose button, or wait for incoming messages from the mesh network." = "ابدأ محادثة جديدة بالنقر على زر الإنشاء، أو انتظر الرسائل الواردة من الشبكة الشبكية.";
+"Pin" = "تثبيت";
+"Unpin" = "إلغاء التثبيت";
+"Delete" = "حذف";
+"Search conversations" = "البحث في المحادثات";
+"New Conversation" = "محادثة جديدة";
+"No messages yet" = "لا توجد رسائل بعد";
+"Pinned" = "مثبت";
+
+/* Messages */
+"Message" = "رسالة";
+"Forward Message" = "إعادة توجيه الرسالة";
+"Forward to" = "إعادة التوجيه إلى";
+"Copy" = "نسخ";
+"Forward" = "إعادة توجيه";
+"Cancel" = "إلغاء";
+"Disappearing messages: %@" = "الرسائل المؤقتة: %@";
+
+/* Attachments */
+"Photo" = "صورة";
+"File" = "ملف";
+"Voice Message" = "رسالة صوتية";
+
+/* Peer Detail */
+"Peer Info" = "معلومات النظير";
+"Details" = "التفاصيل";
+"Destination Hash" = "هاش الوجهة";
+"Last Activity" = "آخر نشاط";
+"Copy Address" = "نسخ العنوان";
+"Disappearing Messages" = "الرسائل المؤقتة";
+"When enabled, messages in this conversation will automatically disappear after the selected time period." = "عند التفعيل، ستُحذف الرسائل في هذه المحادثة تلقائيًا بعد الفترة الزمنية المحددة.";
+"Auto-delete after" = "الحذف التلقائي بعد";
+
+/* Identity */
+"Identity" = "الهوية";
+"Your Identity" = "هويتك";
+"Identity Hash" = "هاش الهوية";
+"LXMF Delivery Address" = "عنوان تسليم LXMF";
+"Copy to Clipboard" = "نسخ إلى الحافظة";
+"Copied!" = "تم النسخ!";
+"Your identity is a unique cryptographic keypair that identifies you on the Reticulum network. Share your LXMF delivery address with others so they can send you messages." = "هويتك عبارة عن زوج مفاتيح تشفيري فريد يُعرّفك على شبكة Reticulum. شارك عنوان تسليم LXMF الخاص بك مع الآخرين حتى يتمكنوا من إرسال رسائل إليك.";
+
+/* Network Status */
+"Local Identity" = "الهوية المحلية";
+"LXMF Address" = "عنوان LXMF";
+"Initializing..." = "جارٍ التهيئة...";
+"No interfaces configured" = "لا توجد واجهات مُهيأة";
+"Interfaces" = "الواجهات";
+"Tools" = "الأدوات";
+"Mesh Topology" = "طوبولوجيا الشبكة";
+"Announce Stream" = "بث الإعلانات";
+"RNode Device" = "جهاز RNode";
+"Discovered Peers" = "النظراء المكتشفون";
+"No peers discovered yet" = "لم يُكتشف أي نظراء بعد";
+"%lld interface(s) online" = "%lld واجهة متصلة";
+
+/* Network Status Labels */
+"Disconnected" = "غير متصل";
+"Connecting..." = "جارٍ الاتصال...";
+"Connected" = "متصل";
+
+/* Disappearing Duration */
+"Off" = "إيقاف";
+"30 seconds" = "30 ثانية";
+"5 minutes" = "5 دقائق";
+"1 hour" = "ساعة واحدة";
+"24 hours" = "24 ساعة";
+"1 week" = "أسبوع واحد";
+
+/* New Conversation */
+"Display Name (optional)" = "الاسم المعروض (اختياري)";
+"Create" = "إنشاء";
+"Invalid hex string" = "سلسلة hex غير صالحة";
+"New Message" = "رسالة جديدة";
+"Enter the LXMF destination hash of the peer you want to message. This is a 32-character hex string." = "أدخل هاش وجهة LXMF للنظير الذي تريد مراسلته. هذه سلسلة hex مكونة من 32 حرفًا.";
+
+/* QR Code */
+"QR Code" = "رمز QR";
+"My Identity" = "هويتي";
+"Scan" = "مسح";
+"Mode" = "الوضع";
+"Others can scan this code to message you" = "يمكن للآخرين مسح هذا الرمز لمراسلتك";
+"Camera not available\nEnter address manually" = "الكاميرا غير متاحة\nأدخل العنوان يدويًا";
+
+/* Announce Stream */
+"No Announces" = "لا توجد إعلانات";
+"Network announces will appear here as peers broadcast their presence." = "ستظهر إعلانات الشبكة هنا عندما يُذيع النظراء تواجدهم.";
+"Copy Hash" = "نسخ الهاش";
+"Send Message" = "إرسال رسالة";
+
+/* RNode */
+"RNode" = "RNode";
+"Connected Device" = "الجهاز المتصل";
+"Radio Statistics" = "إحصائيات الراديو";
+"Radio Configuration" = "إعداد الراديو";
+"Scanning for RNode devices..." = "جارٍ البحث عن أجهزة RNode...";
+"Available Devices" = "الأجهزة المتاحة";
+"Stop" = "إيقاف";
+"Long Range" = "مدى بعيد";
+"Balanced" = "متوازن";
+"Fast" = "سريع";
+"Disconnect" = "قطع الاتصال";
+"Firmware" = "البرنامج الثابت";
+"Firmware: %@" = "البرنامج الثابت: %@";
+"Last RSSI" = "آخر RSSI";
+"Last SNR" = "آخر SNR";
+"TX Power" = "قدرة الإرسال";
+"TX Power: %lld dBm" = "قدرة الإرسال: %lld dBm";
+"Signal: %lld dBm" = "الإشارة: %lld dBm";
+"Radio" = "الراديو";
+"Online" = "متصل";
+"Offline" = "غير متصل";
+"Frequency" = "التردد";
+"Bandwidth" = "عرض النطاق";
+"Spreading Factor" = "عامل الانتشار";
+"Coding Rate" = "معدل الترميز";
+"Apply Configuration" = "تطبيق الإعداد";
+"Quick Presets" = "الإعدادات المسبقة السريعة";
+
+/* Interface Config */
+"Interface Type" = "نوع الواجهة";
+"Interface Name" = "اسم الواجهة";
+"Add Interface" = "إضافة واجهة";
+"Connect" = "اتصال";
+"Connection Error" = "خطأ في الاتصال";
+"TCP Connection" = "اتصال TCP";
+"UDP Connection" = "اتصال UDP";
+"Use Testnet" = "استخدام شبكة الاختبار";
+"Host" = "المضيف";
+"Port" = "المنفذ";
+"Remote Host (optional)" = "المضيف البعيد (اختياري)";
+"Remote Port" = "المنفذ البعيد";
+"Listen Port (optional)" = "منفذ الاستماع (اختياري)";
+"A friendly name for this connection (e.g., \"Home Node\")." = "اسم سهل لهذا الاتصال (مثلاً، \"العقدة المنزلية\").";
+"Connect to a Reticulum transport node. The default port is 4242." = "الاتصال بعقدة نقل Reticulum. المنفذ الافتراضي هو 4242.";
+"Leave the remote host empty for receive-only/broadcast mode. Listen port defaults to the remote port if not specified." = "اترك المضيف البعيد فارغًا للوضع الاستقبالي فقط/البث. يكون منفذ الاستماع افتراضيًا هو المنفذ البعيد إن لم يُحدَّد.";
+"The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**" = "شبكة Reticulum التجريبية متاحة على **amsterdam.connect.reticulum.network:4965**";
+
+/* Interfaces View */
+"No Interfaces" = "لا توجد واجهات";
+"Add a TCP interface to connect to the Reticulum network." = "أضف واجهة TCP للاتصال بشبكة Reticulum.";
+"Type" = "النوع";
+"Status" = "الحالة";
+"Sent" = "المُرسَل";
+"Received" = "المُستقبَل";
+
+/* Map */
+"Mesh Map" = "خريطة الشبكة";
+"Fit All Peers" = "ضبط جميع النظراء";
+"Share My Location" = "مشاركة موقعي";
+"Stop Sharing Location" = "إيقاف مشاركة الموقع";
+"Location Access" = "الوصول إلى الموقع";
+"Open Settings" = "فتح الإعدادات";
+"Location access is required to share your position on the mesh map. Please enable it in Settings." = "يلزم الوصول إلى الموقع لمشاركة موقعك على خريطة الشبكة. يرجى تفعيله في الإعدادات.";
+"Open in Maps" = "فتح في الخرائط";
+"Peer Details" = "تفاصيل النظير";
+"Done" = "تم";
+"Me" = "أنا";
+"Location" = "الموقع";
+"Latitude" = "خط العرض";
+"Longitude" = "خط الطول";
+"Last Update" = "آخر تحديث";
+"Unknown Peer" = "نظير غير معروف";
+"Sharing" = "مشاركة";
+"%lld peers" = "%lld نظير";
+
+/* Identity Export */
+"Identity Backup" = "نسخ احتياطي للهوية";
+"Export Identity" = "تصدير الهوية";
+"Password" = "كلمة المرور";
+"Confirm Password" = "تأكيد كلمة المرور";
+"Export Encrypted Backup" = "تصدير نسخة احتياطية مشفرة";
+"Import Identity" = "استيراد الهوية";
+"Import from File" = "استيراد من ملف";
+"Current Identity" = "الهوية الحالية";
+"Fingerprint" = "البصمة";
+"Import" = "استيراد";
+"Enter Backup Password" = "أدخل كلمة مرور النسخ الاحتياطي";
+"Passwords do not match" = "كلمتا المرور غير متطابقتين";
+"Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network." = "صدِّر هويتك التشفيرية كملف مشفر. يمكن لأي شخص يمتلك هذا الملف وكلمة المرور انتحال شخصيتك على الشبكة.";
+"Minimum 6 characters. Use a strong, unique password." = "6 أحرف على الأقل. استخدم كلمة مرور قوية وفريدة.";
+"Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity." = "استورد نسخة احتياطية للهوية (ملف .rnid) لاستعادة عنوانك على هذا الجهاز. سيؤدي ذلك إلى استبدال هويتك الحالية.";
+"Export Successful" = "تم التصدير بنجاح";
+"Share File" = "مشاركة الملف";
+"Your encrypted identity backup has been saved. Keep this file and password safe." = "تم حفظ النسخة الاحتياطية المشفرة لهويتك. احتفظ بهذا الملف وكلمة المرور في مكان آمن.";
+"Enter the password used when the backup was created. This will replace your current identity." = "أدخل كلمة المرور المستخدمة عند إنشاء النسخة الاحتياطية. سيؤدي ذلك إلى استبدال هويتك الحالية.";
+
+/* Settings */
+"Profile" = "الملف الشخصي";
+"Display Name" = "الاسم المعروض";
+"Identity Details" = "تفاصيل الهوية";
+"Backup & Restore" = "النسخ الاحتياطي والاستعادة";
+"Announce on Network" = "الإعلان على الشبكة";
+"Manage Interfaces" = "إدارة الواجهات";
+"Mesh Features" = "ميزات الشبكة";
+"Auto-Announce" = "الإعلان التلقائي";
+"Periodically broadcast your presence on the network." = "بث تواجدك على الشبكة بشكل دوري.";
+"Location Sharing" = "مشاركة الموقع";
+"Share your GPS position with nearby peers." = "مشاركة موقع GPS مع النظراء المجاورين.";
+"Transport Mode" = "وضع النقل";
+"Relay packets for other nodes on the mesh." = "إعادة توجيه الحزم لعقد أخرى على الشبكة.";
+"Propagation Node" = "عقدة النشر";
+"Store and forward messages for offline peers." = "تخزين الرسائل وإعادة توجيهها للنظراء غير المتصلين.";
+"About" = "حول التطبيق";
+"Reset Identity" = "إعادة تعيين الهوية";
+"Version" = "الإصدار";
+"Protocol" = "البروتوكول";
+"Messaging" = "المراسلة";
+"About Reticulum Messenger" = "حول Reticulum Messenger";
+"Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers." = "يبث الإعلان التلقائي تواجدك بشكل دوري. يتيح وضع النقل لجهازك إعادة توجيه الحزم للشبكة. تخزن عقدة النشر الرسائل للنظراء غير المتصلين.";
+"Resetting your identity will generate new cryptographic keys. You will no longer be reachable at your current address." = "ستؤدي إعادة تعيين هويتك إلى إنشاء مفاتيح تشفير جديدة. لن تكون قابلًا للوصول على عنوانك الحالي بعد الآن.";
+"Reset Identity?" = "إعادة تعيين الهوية؟";
+"Reset" = "إعادة تعيين";
+"This will generate a new identity. Your current address will become unreachable. This cannot be undone." = "سيؤدي هذا إلى إنشاء هوية جديدة. سيصبح عنوانك الحالي غير قابل للوصول. لا يمكن التراجع عن هذا الإجراء.";
+
+/* About */
+"Reticulum Messenger" = "Reticulum Messenger";
+"Reticulum Messenger is an open-source iOS client for the Reticulum Network Stack. It uses the LXMF protocol to send and receive encrypted messages over mesh networks, completely independent of traditional internet infrastructure." = "Reticulum Messenger هو عميل iOS مفتوح المصدر لحزمة شبكة Reticulum. يستخدم بروتوكول LXMF لإرسال واستقبال الرسائل المشفرة عبر الشبكات الشبكية، بشكل مستقل تمامًا عن البنية التحتية للإنترنت التقليدية.";
+"Reticulum" = "Reticulum";
+"Reticulum is a cryptography-based networking protocol designed for unstable and unreliable networks. It provides encrypted, authenticated communication over any medium — from WiFi and cellular to LoRa radio and serial links." = "Reticulum هو بروتوكول شبكي قائم على التشفير مصمم للشبكات غير المستقرة وغير الموثوقة. يوفر اتصالاً مشفرًا وموثقًا عبر أي وسيط — من WiFi والشبكات الخلوية إلى راديو LoRa والروابط التسلسلية.";
+"LXMF" = "LXMF";
+"LXMF (Lightweight Extensible Message Format) is a messaging protocol built on Reticulum. It supports direct delivery, store-and-forward propagation, and works across any combination of network interfaces." = "LXMF (تنسيق الرسائل الخفيف القابل للتوسع) هو بروتوكول مراسلة مبني على Reticulum. يدعم التسليم المباشر والنشر عبر التخزين والإعادة، ويعمل عبر أي مجموعة من واجهات الشبكة.";
+"Privacy" = "الخصوصية";
+"All messages are end-to-end encrypted using modern elliptic curve cryptography (X25519 + Ed25519). Your identity exists only on your device — there are no accounts, servers, or phone numbers." = "جميع الرسائل مشفرة من طرف إلى طرف باستخدام تشفير المنحنى الإهليلجي الحديث (X25519 + Ed25519). هويتك موجودة فقط على جهازك — لا حسابات، لا خوادم، لا أرقام هواتف.";
+"Open Source" = "مفتوح المصدر";
+"This app is open source under the MIT license. Contributions are welcome! Visit the GitHub repository to get involved." = "هذا التطبيق مفتوح المصدر بموجب رخصة MIT. المساهمات مرحب بها! تفضل بزيارة مستودع GitHub للمشاركة.";
+"Reticulum Network" = "شبكة Reticulum";
+"LXMF Documentation" = "توثيق LXMF";
+"Sideband (Android)" = "Sideband (Android)";
+
+/* Mesh Graph */
+"You" = "أنت";
+"Interface" = "واجهة";
+"Peer" = "نظير";
+"Active" = "نشط";
+
+/* Storage Errors */
+"No identity found to export" = "لم يُعثر على هوية للتصدير";
+"Cannot access the selected file" = "لا يمكن الوصول إلى الملف المحدد";
+"Not a valid identity backup file" = "ليس ملف نسخ احتياطي صالحًا للهوية";
+"Backup file version not supported" = "إصدار ملف النسخ الاحتياطي غير مدعوم";
+"Incorrect password" = "كلمة المرور غير صحيحة";
+
+/* Common */
+"OK" = "موافق";
+"Error" = "خطأ";
+"Save" = "حفظ";

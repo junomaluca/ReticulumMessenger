@@ -1,0 +1,257 @@
+/* Russian — ru */
+
+/* Tab Navigation */
+"Messages" = "Сообщения";
+"Map" = "Карта";
+"Network" = "Сеть";
+"Settings" = "Настройки";
+
+/* Conversations */
+"No Conversations" = "Нет диалогов";
+"Start a new conversation by tapping the compose button, or wait for incoming messages from the mesh network." = "Начните диалог, нажав кнопку редактирования, или ожидайте входящих сообщений из ячеистой сети.";
+"Pin" = "Закрепить";
+"Unpin" = "Открепить";
+"Delete" = "Удалить";
+"Search conversations" = "Поиск диалогов";
+"New Conversation" = "Новый диалог";
+"No messages yet" = "Нет сообщений";
+"Pinned" = "Закреплённые";
+
+/* Messages */
+"Message" = "Сообщение";
+"Forward Message" = "Переслать сообщение";
+"Forward to" = "Переслать кому";
+"Copy" = "Копировать";
+"Forward" = "Переслать";
+"Cancel" = "Отмена";
+"Disappearing messages: %@" = "Исчезающие сообщения: %@";
+
+/* Attachments */
+"Photo" = "Фото";
+"File" = "Файл";
+"Voice Message" = "Голосовое сообщение";
+
+/* Peer Detail */
+"Peer Info" = "Информация об узле";
+"Details" = "Подробности";
+"Destination Hash" = "Хеш назначения";
+"Last Activity" = "Последняя активность";
+"Copy Address" = "Скопировать адрес";
+"Disappearing Messages" = "Исчезающие сообщения";
+"When enabled, messages in this conversation will automatically disappear after the selected time period." = "При включении сообщения в этом диалоге будут автоматически удаляться по истечении выбранного периода.";
+"Auto-delete after" = "Автоудаление через";
+
+/* Identity */
+"Identity" = "Идентификатор";
+"Your Identity" = "Ваш идентификатор";
+"Identity Hash" = "Хеш идентификатора";
+"LXMF Delivery Address" = "Адрес доставки LXMF";
+"Copy to Clipboard" = "Скопировать в буфер";
+"Copied!" = "Скопировано!";
+"Your identity is a unique cryptographic keypair that identifies you on the Reticulum network. Share your LXMF delivery address with others so they can send you messages." = "Ваш идентификатор — уникальная криптографическая пара ключей, которая идентифицирует вас в сети Reticulum. Поделитесь адресом доставки LXMF с другими, чтобы они могли отправлять вам сообщения.";
+
+/* Network Status */
+"Local Identity" = "Локальный идентификатор";
+"LXMF Address" = "Адрес LXMF";
+"Initializing..." = "Инициализация...";
+"No interfaces configured" = "Интерфейсы не настроены";
+"Interfaces" = "Интерфейсы";
+"Tools" = "Инструменты";
+"Mesh Topology" = "Топология сети";
+"Announce Stream" = "Поток объявлений";
+"RNode Device" = "Устройство RNode";
+"Discovered Peers" = "Обнаруженные узлы";
+"No peers discovered yet" = "Узлы ещё не обнаружены";
+"%lld interface(s) online" = "%lld интерфейс(ов) онлайн";
+
+/* Network Status Labels */
+"Disconnected" = "Отключено";
+"Connecting..." = "Подключение...";
+"Connected" = "Подключено";
+
+/* Disappearing Duration */
+"Off" = "Выкл.";
+"30 seconds" = "30 секунд";
+"5 minutes" = "5 минут";
+"1 hour" = "1 час";
+"24 hours" = "24 часа";
+"1 week" = "1 неделя";
+
+/* New Conversation */
+"Display Name (optional)" = "Отображаемое имя (необязательно)";
+"Create" = "Создать";
+"Invalid hex string" = "Неверная hex-строка";
+"New Message" = "Новое сообщение";
+"Enter the LXMF destination hash of the peer you want to message. This is a 32-character hex string." = "Введите хеш назначения LXMF узла, которому хотите написать. Это строка из 32 hex-символов.";
+
+/* QR Code */
+"QR Code" = "QR-код";
+"My Identity" = "Мой идентификатор";
+"Scan" = "Сканировать";
+"Mode" = "Режим";
+"Others can scan this code to message you" = "Другие могут отсканировать этот код, чтобы написать вам";
+"Camera not available\nEnter address manually" = "Камера недоступна\nВведите адрес вручную";
+
+/* Announce Stream */
+"No Announces" = "Нет объявлений";
+"Network announces will appear here as peers broadcast their presence." = "Сетевые объявления будут появляться здесь по мере того, как узлы заявляют о своём присутствии.";
+"Copy Hash" = "Скопировать хеш";
+"Send Message" = "Отправить сообщение";
+
+/* RNode */
+"RNode" = "RNode";
+"Connected Device" = "Подключённое устройство";
+"Radio Statistics" = "Статистика радио";
+"Radio Configuration" = "Конфигурация радио";
+"Scanning for RNode devices..." = "Поиск устройств RNode...";
+"Available Devices" = "Доступные устройства";
+"Stop" = "Стоп";
+"Long Range" = "Дальний диапазон";
+"Balanced" = "Сбалансированный";
+"Fast" = "Быстрый";
+"Disconnect" = "Отключить";
+"Firmware" = "Прошивка";
+"Firmware: %@" = "Прошивка: %@";
+"Last RSSI" = "Последний RSSI";
+"Last SNR" = "Последний SNR";
+"TX Power" = "Мощность передачи";
+"TX Power: %lld dBm" = "Мощность передачи: %lld dBm";
+"Signal: %lld dBm" = "Сигнал: %lld dBm";
+"Radio" = "Радио";
+"Online" = "Онлайн";
+"Offline" = "Офлайн";
+"Frequency" = "Частота";
+"Bandwidth" = "Полоса пропускания";
+"Spreading Factor" = "Коэффициент расширения";
+"Coding Rate" = "Скорость кодирования";
+"Apply Configuration" = "Применить конфигурацию";
+"Quick Presets" = "Быстрые пресеты";
+
+/* Interface Config */
+"Interface Type" = "Тип интерфейса";
+"Interface Name" = "Имя интерфейса";
+"Add Interface" = "Добавить интерфейс";
+"Connect" = "Подключить";
+"Connection Error" = "Ошибка подключения";
+"TCP Connection" = "TCP-соединение";
+"UDP Connection" = "UDP-соединение";
+"Use Testnet" = "Использовать тестовую сеть";
+"Host" = "Хост";
+"Port" = "Порт";
+"Remote Host (optional)" = "Удалённый хост (необязательно)";
+"Remote Port" = "Удалённый порт";
+"Listen Port (optional)" = "Порт прослушивания (необязательно)";
+"A friendly name for this connection (e.g., \"Home Node\")." = "Понятное имя для этого соединения (например, «Домашний узел»).";
+"Connect to a Reticulum transport node. The default port is 4242." = "Подключитесь к транспортному узлу Reticulum. Порт по умолчанию — 4242.";
+"Leave the remote host empty for receive-only/broadcast mode. Listen port defaults to the remote port if not specified." = "Оставьте удалённый хост пустым для режима только приёма/трансляции. Порт прослушивания по умолчанию равен удалённому порту, если не указан.";
+"The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**" = "Тестовая сеть Reticulum доступна по адресу **amsterdam.connect.reticulum.network:4965**";
+
+/* Interfaces View */
+"No Interfaces" = "Нет интерфейсов";
+"Add a TCP interface to connect to the Reticulum network." = "Добавьте TCP-интерфейс для подключения к сети Reticulum.";
+"Type" = "Тип";
+"Status" = "Статус";
+"Sent" = "Отправлено";
+"Received" = "Получено";
+
+/* Map */
+"Mesh Map" = "Карта сети";
+"Fit All Peers" = "Показать все узлы";
+"Share My Location" = "Поделиться геолокацией";
+"Stop Sharing Location" = "Остановить передачу геолокации";
+"Location Access" = "Доступ к геолокации";
+"Open Settings" = "Открыть настройки";
+"Location access is required to share your position on the mesh map. Please enable it in Settings." = "Для передачи вашего местоположения на карте сети необходим доступ к геолокации. Включите его в Настройках.";
+"Open in Maps" = "Открыть в Картах";
+"Peer Details" = "Сведения об узле";
+"Done" = "Готово";
+"Me" = "Я";
+"Location" = "Местоположение";
+"Latitude" = "Широта";
+"Longitude" = "Долгота";
+"Last Update" = "Последнее обновление";
+"Unknown Peer" = "Неизвестный узел";
+"Sharing" = "Трансляция";
+"%lld peers" = "%lld узл(ов)";
+
+/* Identity Export */
+"Identity Backup" = "Резервная копия идентификатора";
+"Export Identity" = "Экспорт идентификатора";
+"Password" = "Пароль";
+"Confirm Password" = "Подтвердите пароль";
+"Export Encrypted Backup" = "Экспортировать зашифрованную копию";
+"Import Identity" = "Импорт идентификатора";
+"Import from File" = "Импортировать из файла";
+"Current Identity" = "Текущий идентификатор";
+"Fingerprint" = "Отпечаток";
+"Import" = "Импортировать";
+"Enter Backup Password" = "Введите пароль резервной копии";
+"Passwords do not match" = "Пароли не совпадают";
+"Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network." = "Экспортируйте ваш криптографический идентификатор в зашифрованный файл. Любой, у кого есть этот файл и пароль, может выдать себя за вас в сети.";
+"Minimum 6 characters. Use a strong, unique password." = "Минимум 6 символов. Используйте надёжный уникальный пароль.";
+"Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity." = "Импортируйте резервную копию идентификатора (файл .rnid) для восстановления вашего адреса на этом устройстве. Это заменит текущий идентификатор.";
+"Export Successful" = "Экспорт выполнен";
+"Share File" = "Поделиться файлом";
+"Your encrypted identity backup has been saved. Keep this file and password safe." = "Зашифрованная резервная копия идентификатора сохранена. Храните этот файл и пароль в надёжном месте.";
+"Enter the password used when the backup was created. This will replace your current identity." = "Введите пароль, использованный при создании резервной копии. Это заменит текущий идентификатор.";
+
+/* Settings */
+"Profile" = "Профиль";
+"Display Name" = "Отображаемое имя";
+"Identity Details" = "Сведения об идентификаторе";
+"Backup & Restore" = "Резервное копирование и восстановление";
+"Announce on Network" = "Объявить в сети";
+"Manage Interfaces" = "Управление интерфейсами";
+"Mesh Features" = "Функции сети";
+"Auto-Announce" = "Автообъявление";
+"Periodically broadcast your presence on the network." = "Периодически транслировать своё присутствие в сети.";
+"Location Sharing" = "Передача геолокации";
+"Share your GPS position with nearby peers." = "Передавайте своё GPS-положение соседним узлам.";
+"Transport Mode" = "Режим транспортировки";
+"Relay packets for other nodes on the mesh." = "Ретранслировать пакеты для других узлов сети.";
+"Propagation Node" = "Узел распространения";
+"Store and forward messages for offline peers." = "Хранить и пересылать сообщения для офлайн-узлов.";
+"About" = "О приложении";
+"Reset Identity" = "Сбросить идентификатор";
+"Version" = "Версия";
+"Protocol" = "Протокол";
+"Messaging" = "Мессенджер";
+"About Reticulum Messenger" = "О Reticulum Messenger";
+"Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers." = "Автообъявление периодически транслирует ваше присутствие. Режим транспортировки позволяет ретранслировать пакеты. Узел распространения хранит сообщения для офлайн-узлов.";
+"Resetting your identity will generate new cryptographic keys. You will no longer be reachable at your current address." = "Сброс идентификатора создаст новые криптографические ключи. Вы больше не будете доступны по текущему адресу.";
+"Reset Identity?" = "Сбросить идентификатор?";
+"Reset" = "Сбросить";
+"This will generate a new identity. Your current address will become unreachable. This cannot be undone." = "Это создаст новый идентификатор. Ваш текущий адрес станет недоступен. Действие необратимо.";
+
+/* About */
+"Reticulum Messenger" = "Reticulum Messenger";
+"Reticulum Messenger is an open-source iOS client for the Reticulum Network Stack. It uses the LXMF protocol to send and receive encrypted messages over mesh networks, completely independent of traditional internet infrastructure." = "Reticulum Messenger — клиент iOS с открытым исходным кодом для стека протоколов Reticulum. Он использует протокол LXMF для отправки и получения зашифрованных сообщений через ячеистые сети, полностью независимо от традиционной интернет-инфраструктуры.";
+"Reticulum" = "Reticulum";
+"Reticulum is a cryptography-based networking protocol designed for unstable and unreliable networks. It provides encrypted, authenticated communication over any medium — from WiFi and cellular to LoRa radio and serial links." = "Reticulum — сетевой протокол на основе криптографии, разработанный для нестабильных и ненадёжных сетей. Он обеспечивает зашифрованную аутентифицированную связь через любую среду — от WiFi и сотовых сетей до радио LoRa и последовательных каналов.";
+"LXMF" = "LXMF";
+"LXMF (Lightweight Extensible Message Format) is a messaging protocol built on Reticulum. It supports direct delivery, store-and-forward propagation, and works across any combination of network interfaces." = "LXMF (Lightweight Extensible Message Format) — протокол обмена сообщениями, построенный на Reticulum. Он поддерживает прямую доставку, распространение с сохранением и пересылкой и работает через любую комбинацию сетевых интерфейсов.";
+"Privacy" = "Конфиденциальность";
+"All messages are end-to-end encrypted using modern elliptic curve cryptography (X25519 + Ed25519). Your identity exists only on your device — there are no accounts, servers, or phone numbers." = "Все сообщения защищены сквозным шифрованием с использованием современной криптографии на эллиптических кривых (X25519 + Ed25519). Ваш идентификатор существует только на вашем устройстве — без аккаунтов, серверов и номеров телефонов.";
+"Open Source" = "Открытый исходный код";
+"This app is open source under the MIT license. Contributions are welcome! Visit the GitHub repository to get involved." = "Это приложение распространяется с открытым исходным кодом под лицензией MIT. Вклад приветствуется! Посетите репозиторий GitHub, чтобы принять участие.";
+"Reticulum Network" = "Сеть Reticulum";
+"LXMF Documentation" = "Документация LXMF";
+"Sideband (Android)" = "Sideband (Android)";
+
+/* Mesh Graph */
+"You" = "Вы";
+"Interface" = "Интерфейс";
+"Peer" = "Узел";
+"Active" = "Активен";
+
+/* Storage Errors */
+"No identity found to export" = "Идентификатор для экспорта не найден";
+"Cannot access the selected file" = "Нет доступа к выбранному файлу";
+"Not a valid identity backup file" = "Файл не является допустимой резервной копией идентификатора";
+"Backup file version not supported" = "Версия файла резервной копии не поддерживается";
+"Incorrect password" = "Неверный пароль";
+
+/* Common */
+"OK" = "ОК";
+"Error" = "Ошибка";
+"Save" = "Сохранить";

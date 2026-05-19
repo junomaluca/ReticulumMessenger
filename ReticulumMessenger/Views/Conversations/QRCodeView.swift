@@ -205,7 +205,7 @@ class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsD
 
     private func showPlaceholder() {
         let label = UILabel()
-        label.text = "Camera not available\nEnter address manually"
+        label.text = NSLocalizedString("Camera not available\nEnter address manually", comment: "")
         label.textAlignment = .center
         label.numberOfLines = 0
         label.textColor = .secondaryLabel

@@ -1,0 +1,258 @@
+/* English — Base localization
+   Keys are the English text so SwiftUI picks them up automatically. */
+
+/* Tab Navigation */
+"Messages" = "Messages";
+"Map" = "Map";
+"Network" = "Network";
+"Settings" = "Settings";
+
+/* Conversations */
+"No Conversations" = "No Conversations";
+"Start a new conversation by tapping the compose button, or wait for incoming messages from the mesh network." = "Start a new conversation by tapping the compose button, or wait for incoming messages from the mesh network.";
+"Pin" = "Pin";
+"Unpin" = "Unpin";
+"Delete" = "Delete";
+"Search conversations" = "Search conversations";
+"New Conversation" = "New Conversation";
+"No messages yet" = "No messages yet";
+"Pinned" = "Pinned";
+
+/* Messages */
+"Message" = "Message";
+"Forward Message" = "Forward Message";
+"Forward to" = "Forward to";
+"Copy" = "Copy";
+"Forward" = "Forward";
+"Cancel" = "Cancel";
+"Disappearing messages: %@" = "Disappearing messages: %@";
+
+/* Attachments */
+"Photo" = "Photo";
+"File" = "File";
+"Voice Message" = "Voice Message";
+
+/* Peer Detail */
+"Peer Info" = "Peer Info";
+"Details" = "Details";
+"Destination Hash" = "Destination Hash";
+"Last Activity" = "Last Activity";
+"Copy Address" = "Copy Address";
+"Disappearing Messages" = "Disappearing Messages";
+"When enabled, messages in this conversation will automatically disappear after the selected time period." = "When enabled, messages in this conversation will automatically disappear after the selected time period.";
+"Auto-delete after" = "Auto-delete after";
+
+/* Identity */
+"Identity" = "Identity";
+"Your Identity" = "Your Identity";
+"Identity Hash" = "Identity Hash";
+"LXMF Delivery Address" = "LXMF Delivery Address";
+"Copy to Clipboard" = "Copy to Clipboard";
+"Copied!" = "Copied!";
+"Your identity is a unique cryptographic keypair that identifies you on the Reticulum network. Share your LXMF delivery address with others so they can send you messages." = "Your identity is a unique cryptographic keypair that identifies you on the Reticulum network. Share your LXMF delivery address with others so they can send you messages.";
+
+/* Network Status */
+"Local Identity" = "Local Identity";
+"LXMF Address" = "LXMF Address";
+"Initializing..." = "Initializing...";
+"No interfaces configured" = "No interfaces configured";
+"Interfaces" = "Interfaces";
+"Tools" = "Tools";
+"Mesh Topology" = "Mesh Topology";
+"Announce Stream" = "Announce Stream";
+"RNode Device" = "RNode Device";
+"Discovered Peers" = "Discovered Peers";
+"No peers discovered yet" = "No peers discovered yet";
+"%lld interface(s) online" = "%lld interface(s) online";
+
+/* Network Status Labels */
+"Disconnected" = "Disconnected";
+"Connecting..." = "Connecting...";
+"Connected" = "Connected";
+
+/* Disappearing Duration */
+"Off" = "Off";
+"30 seconds" = "30 seconds";
+"5 minutes" = "5 minutes";
+"1 hour" = "1 hour";
+"24 hours" = "24 hours";
+"1 week" = "1 week";
+
+/* New Conversation */
+"Display Name (optional)" = "Display Name (optional)";
+"Create" = "Create";
+"Invalid hex string" = "Invalid hex string";
+"New Message" = "New Message";
+"Enter the LXMF destination hash of the peer you want to message. This is a 32-character hex string." = "Enter the LXMF destination hash of the peer you want to message. This is a 32-character hex string.";
+
+/* QR Code */
+"QR Code" = "QR Code";
+"My Identity" = "My Identity";
+"Scan" = "Scan";
+"Mode" = "Mode";
+"Others can scan this code to message you" = "Others can scan this code to message you";
+"Camera not available\nEnter address manually" = "Camera not available\nEnter address manually";
+
+/* Announce Stream */
+"No Announces" = "No Announces";
+"Network announces will appear here as peers broadcast their presence." = "Network announces will appear here as peers broadcast their presence.";
+"Copy Hash" = "Copy Hash";
+"Send Message" = "Send Message";
+
+/* RNode */
+"RNode" = "RNode";
+"Connected Device" = "Connected Device";
+"Radio Statistics" = "Radio Statistics";
+"Radio Configuration" = "Radio Configuration";
+"Scanning for RNode devices..." = "Scanning for RNode devices...";
+"Available Devices" = "Available Devices";
+"Stop" = "Stop";
+"Long Range" = "Long Range";
+"Balanced" = "Balanced";
+"Fast" = "Fast";
+"Disconnect" = "Disconnect";
+"Firmware" = "Firmware";
+"Firmware: %@" = "Firmware: %@";
+"Last RSSI" = "Last RSSI";
+"Last SNR" = "Last SNR";
+"TX Power" = "TX Power";
+"TX Power: %lld dBm" = "TX Power: %lld dBm";
+"Signal: %lld dBm" = "Signal: %lld dBm";
+"Radio" = "Radio";
+"Online" = "Online";
+"Offline" = "Offline";
+"Frequency" = "Frequency";
+"Bandwidth" = "Bandwidth";
+"Spreading Factor" = "Spreading Factor";
+"Coding Rate" = "Coding Rate";
+"Apply Configuration" = "Apply Configuration";
+"Quick Presets" = "Quick Presets";
+
+/* Interface Config */
+"Interface Type" = "Interface Type";
+"Interface Name" = "Interface Name";
+"Add Interface" = "Add Interface";
+"Connect" = "Connect";
+"Connection Error" = "Connection Error";
+"TCP Connection" = "TCP Connection";
+"UDP Connection" = "UDP Connection";
+"Use Testnet" = "Use Testnet";
+"Host" = "Host";
+"Port" = "Port";
+"Remote Host (optional)" = "Remote Host (optional)";
+"Remote Port" = "Remote Port";
+"Listen Port (optional)" = "Listen Port (optional)";
+"A friendly name for this connection (e.g., \"Home Node\")." = "A friendly name for this connection (e.g., \"Home Node\").";
+"Connect to a Reticulum transport node. The default port is 4242." = "Connect to a Reticulum transport node. The default port is 4242.";
+"Leave the remote host empty for receive-only/broadcast mode. Listen port defaults to the remote port if not specified." = "Leave the remote host empty for receive-only/broadcast mode. Listen port defaults to the remote port if not specified.";
+"The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**" = "The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**";
+
+/* Interfaces View */
+"No Interfaces" = "No Interfaces";
+"Add a TCP interface to connect to the Reticulum network." = "Add a TCP interface to connect to the Reticulum network.";
+"Type" = "Type";
+"Status" = "Status";
+"Sent" = "Sent";
+"Received" = "Received";
+
+/* Map */
+"Mesh Map" = "Mesh Map";
+"Fit All Peers" = "Fit All Peers";
+"Share My Location" = "Share My Location";
+"Stop Sharing Location" = "Stop Sharing Location";
+"Location Access" = "Location Access";
+"Open Settings" = "Open Settings";
+"Location access is required to share your position on the mesh map. Please enable it in Settings." = "Location access is required to share your position on the mesh map. Please enable it in Settings.";
+"Open in Maps" = "Open in Maps";
+"Peer Details" = "Peer Details";
+"Done" = "Done";
+"Me" = "Me";
+"Location" = "Location";
+"Latitude" = "Latitude";
+"Longitude" = "Longitude";
+"Last Update" = "Last Update";
+"Unknown Peer" = "Unknown Peer";
+"Sharing" = "Sharing";
+"%lld peers" = "%lld peers";
+
+/* Identity Export */
+"Identity Backup" = "Identity Backup";
+"Export Identity" = "Export Identity";
+"Password" = "Password";
+"Confirm Password" = "Confirm Password";
+"Export Encrypted Backup" = "Export Encrypted Backup";
+"Import Identity" = "Import Identity";
+"Import from File" = "Import from File";
+"Current Identity" = "Current Identity";
+"Fingerprint" = "Fingerprint";
+"Import" = "Import";
+"Enter Backup Password" = "Enter Backup Password";
+"Passwords do not match" = "Passwords do not match";
+"Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network." = "Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network.";
+"Minimum 6 characters. Use a strong, unique password." = "Minimum 6 characters. Use a strong, unique password.";
+"Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity." = "Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity.";
+"Export Successful" = "Export Successful";
+"Share File" = "Share File";
+"Your encrypted identity backup has been saved. Keep this file and password safe." = "Your encrypted identity backup has been saved. Keep this file and password safe.";
+"Enter the password used when the backup was created. This will replace your current identity." = "Enter the password used when the backup was created. This will replace your current identity.";
+
+/* Settings */
+"Profile" = "Profile";
+"Display Name" = "Display Name";
+"Identity Details" = "Identity Details";
+"Backup & Restore" = "Backup & Restore";
+"Announce on Network" = "Announce on Network";
+"Manage Interfaces" = "Manage Interfaces";
+"Mesh Features" = "Mesh Features";
+"Auto-Announce" = "Auto-Announce";
+"Periodically broadcast your presence on the network." = "Periodically broadcast your presence on the network.";
+"Location Sharing" = "Location Sharing";
+"Share your GPS position with nearby peers." = "Share your GPS position with nearby peers.";
+"Transport Mode" = "Transport Mode";
+"Relay packets for other nodes on the mesh." = "Relay packets for other nodes on the mesh.";
+"Propagation Node" = "Propagation Node";
+"Store and forward messages for offline peers." = "Store and forward messages for offline peers.";
+"About" = "About";
+"Reset Identity" = "Reset Identity";
+"Version" = "Version";
+"Protocol" = "Protocol";
+"Messaging" = "Messaging";
+"About Reticulum Messenger" = "About Reticulum Messenger";
+"Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers." = "Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers.";
+"Resetting your identity will generate new cryptographic keys. You will no longer be reachable at your current address." = "Resetting your identity will generate new cryptographic keys. You will no longer be reachable at your current address.";
+"Reset Identity?" = "Reset Identity?";
+"Reset" = "Reset";
+"This will generate a new identity. Your current address will become unreachable. This cannot be undone." = "This will generate a new identity. Your current address will become unreachable. This cannot be undone.";
+
+/* About */
+"Reticulum Messenger" = "Reticulum Messenger";
+"Reticulum Messenger is an open-source iOS client for the Reticulum Network Stack. It uses the LXMF protocol to send and receive encrypted messages over mesh networks, completely independent of traditional internet infrastructure." = "Reticulum Messenger is an open-source iOS client for the Reticulum Network Stack. It uses the LXMF protocol to send and receive encrypted messages over mesh networks, completely independent of traditional internet infrastructure.";
+"Reticulum" = "Reticulum";
+"Reticulum is a cryptography-based networking protocol designed for unstable and unreliable networks. It provides encrypted, authenticated communication over any medium — from WiFi and cellular to LoRa radio and serial links." = "Reticulum is a cryptography-based networking protocol designed for unstable and unreliable networks. It provides encrypted, authenticated communication over any medium — from WiFi and cellular to LoRa radio and serial links.";
+"LXMF" = "LXMF";
+"LXMF (Lightweight Extensible Message Format) is a messaging protocol built on Reticulum. It supports direct delivery, store-and-forward propagation, and works across any combination of network interfaces." = "LXMF (Lightweight Extensible Message Format) is a messaging protocol built on Reticulum. It supports direct delivery, store-and-forward propagation, and works across any combination of network interfaces.";
+"Privacy" = "Privacy";
+"All messages are end-to-end encrypted using modern elliptic curve cryptography (X25519 + Ed25519). Your identity exists only on your device — there are no accounts, servers, or phone numbers." = "All messages are end-to-end encrypted using modern elliptic curve cryptography (X25519 + Ed25519). Your identity exists only on your device — there are no accounts, servers, or phone numbers.";
+"Open Source" = "Open Source";
+"This app is open source under the MIT license. Contributions are welcome! Visit the GitHub repository to get involved." = "This app is open source under the MIT license. Contributions are welcome! Visit the GitHub repository to get involved.";
+"Reticulum Network" = "Reticulum Network";
+"LXMF Documentation" = "LXMF Documentation";
+"Sideband (Android)" = "Sideband (Android)";
+
+/* Mesh Graph */
+"You" = "You";
+"Interface" = "Interface";
+"Peer" = "Peer";
+"Active" = "Active";
+
+/* Storage Errors */
+"No identity found to export" = "No identity found to export";
+"Cannot access the selected file" = "Cannot access the selected file";
+"Not a valid identity backup file" = "Not a valid identity backup file";
+"Backup file version not supported" = "Backup file version not supported";
+"Incorrect password" = "Incorrect password";
+
+/* Common */
+"OK" = "OK";
+"Error" = "Error";
+"Save" = "Save";

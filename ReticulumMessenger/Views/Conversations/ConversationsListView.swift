@@ -198,7 +198,7 @@ struct ConversationRow: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     } else {
-                        Text("No messages")
+                        Text("No messages yet")
                             .font(.subheadline)
                             .foregroundStyle(.tertiary)
                     }

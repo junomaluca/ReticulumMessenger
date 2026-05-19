@@ -5,6 +5,7 @@ options:
     iOS: "17.0"
   xcodeVersion: "15.0"
   generateEmptyDirectories: true
+  developmentLanguage: en
 
 settings:
   base:

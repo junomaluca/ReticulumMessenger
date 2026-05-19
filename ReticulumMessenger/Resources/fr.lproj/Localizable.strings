@@ -1,0 +1,258 @@
+/* French — Localisation française
+   Keys are the English text so SwiftUI picks them up automatically. */
+
+/* Tab Navigation */
+"Messages" = "Messages";
+"Map" = "Carte";
+"Network" = "Réseau";
+"Settings" = "Paramètres";
+
+/* Conversations */
+"No Conversations" = "Aucune conversation";
+"Start a new conversation by tapping the compose button, or wait for incoming messages from the mesh network." = "Démarrez une nouvelle conversation en appuyant sur le bouton de rédaction, ou attendez des messages entrants du réseau maillé.";
+"Pin" = "Épingler";
+"Unpin" = "Désépingler";
+"Delete" = "Supprimer";
+"Search conversations" = "Rechercher des conversations";
+"New Conversation" = "Nouvelle conversation";
+"No messages yet" = "Aucun message pour l'instant";
+"Pinned" = "Épinglé";
+
+/* Messages */
+"Message" = "Message";
+"Forward Message" = "Transférer le message";
+"Forward to" = "Transférer à";
+"Copy" = "Copier";
+"Forward" = "Transférer";
+"Cancel" = "Annuler";
+"Disappearing messages: %@" = "Messages éphémères : %@";
+
+/* Attachments */
+"Photo" = "Photo";
+"File" = "Fichier";
+"Voice Message" = "Message vocal";
+
+/* Peer Detail */
+"Peer Info" = "Infos du pair";
+"Details" = "Détails";
+"Destination Hash" = "Hash de destination";
+"Last Activity" = "Dernière activité";
+"Copy Address" = "Copier l'adresse";
+"Disappearing Messages" = "Messages éphémères";
+"When enabled, messages in this conversation will automatically disappear after the selected time period." = "Lorsqu'ils sont activés, les messages de cette conversation disparaîtront automatiquement après la période sélectionnée.";
+"Auto-delete after" = "Suppression automatique après";
+
+/* Identity */
+"Identity" = "Identité";
+"Your Identity" = "Votre identité";
+"Identity Hash" = "Hash d'identité";
+"LXMF Delivery Address" = "Adresse de livraison LXMF";
+"Copy to Clipboard" = "Copier dans le presse-papiers";
+"Copied!" = "Copié !";
+"Your identity is a unique cryptographic keypair that identifies you on the Reticulum network. Share your LXMF delivery address with others so they can send you messages." = "Votre identité est une paire de clés cryptographiques unique qui vous identifie sur le réseau Reticulum. Partagez votre adresse de livraison LXMF avec d'autres personnes pour qu'elles puissent vous envoyer des messages.";
+
+/* Network Status */
+"Local Identity" = "Identité locale";
+"LXMF Address" = "Adresse LXMF";
+"Initializing..." = "Initialisation…";
+"No interfaces configured" = "Aucune interface configurée";
+"Interfaces" = "Interfaces";
+"Tools" = "Outils";
+"Mesh Topology" = "Topologie du maillage";
+"Announce Stream" = "Flux d'annonces";
+"RNode Device" = "Périphérique RNode";
+"Discovered Peers" = "Pairs découverts";
+"No peers discovered yet" = "Aucun pair découvert pour l'instant";
+"%lld interface(s) online" = "%lld interface(s) en ligne";
+
+/* Network Status Labels */
+"Disconnected" = "Déconnecté";
+"Connecting..." = "Connexion…";
+"Connected" = "Connecté";
+
+/* Disappearing Duration */
+"Off" = "Désactivé";
+"30 seconds" = "30 secondes";
+"5 minutes" = "5 minutes";
+"1 hour" = "1 heure";
+"24 hours" = "24 heures";
+"1 week" = "1 semaine";
+
+/* New Conversation */
+"Display Name (optional)" = "Nom d'affichage (facultatif)";
+"Create" = "Créer";
+"Invalid hex string" = "Chaîne hexadécimale invalide";
+"New Message" = "Nouveau message";
+"Enter the LXMF destination hash of the peer you want to message. This is a 32-character hex string." = "Saisissez le hash de destination LXMF du pair auquel vous souhaitez envoyer un message. Il s'agit d'une chaîne hexadécimale de 32 caractères.";
+
+/* QR Code */
+"QR Code" = "Code QR";
+"My Identity" = "Mon identité";
+"Scan" = "Scanner";
+"Mode" = "Mode";
+"Others can scan this code to message you" = "D'autres personnes peuvent scanner ce code pour vous envoyer des messages";
+"Camera not available\nEnter address manually" = "Caméra non disponible\nSaisissez l'adresse manuellement";
+
+/* Announce Stream */
+"No Announces" = "Aucune annonce";
+"Network announces will appear here as peers broadcast their presence." = "Les annonces réseau apparaîtront ici lorsque les pairs diffuseront leur présence.";
+"Copy Hash" = "Copier le hash";
+"Send Message" = "Envoyer un message";
+
+/* RNode */
+"RNode" = "RNode";
+"Connected Device" = "Périphérique connecté";
+"Radio Statistics" = "Statistiques radio";
+"Radio Configuration" = "Configuration radio";
+"Scanning for RNode devices..." = "Recherche de périphériques RNode…";
+"Available Devices" = "Périphériques disponibles";
+"Stop" = "Arrêter";
+"Long Range" = "Longue portée";
+"Balanced" = "Équilibré";
+"Fast" = "Rapide";
+"Disconnect" = "Déconnecter";
+"Firmware" = "Micrologiciel";
+"Firmware: %@" = "Micrologiciel : %@";
+"Last RSSI" = "Dernier RSSI";
+"Last SNR" = "Dernier SNR";
+"TX Power" = "Puissance TX";
+"TX Power: %lld dBm" = "Puissance TX : %lld dBm";
+"Signal: %lld dBm" = "Signal : %lld dBm";
+"Radio" = "Radio";
+"Online" = "En ligne";
+"Offline" = "Hors ligne";
+"Frequency" = "Fréquence";
+"Bandwidth" = "Largeur de bande";
+"Spreading Factor" = "Facteur d'étalement";
+"Coding Rate" = "Taux de codage";
+"Apply Configuration" = "Appliquer la configuration";
+"Quick Presets" = "Préréglages rapides";
+
+/* Interface Config */
+"Interface Type" = "Type d'interface";
+"Interface Name" = "Nom de l'interface";
+"Add Interface" = "Ajouter une interface";
+"Connect" = "Connecter";
+"Connection Error" = "Erreur de connexion";
+"TCP Connection" = "Connexion TCP";
+"UDP Connection" = "Connexion UDP";
+"Use Testnet" = "Utiliser le Testnet";
+"Host" = "Hôte";
+"Port" = "Port";
+"Remote Host (optional)" = "Hôte distant (facultatif)";
+"Remote Port" = "Port distant";
+"Listen Port (optional)" = "Port d'écoute (facultatif)";
+"A friendly name for this connection (e.g., \"Home Node\")." = "Un nom convivial pour cette connexion (p. ex., \"Nœud maison\").";
+"Connect to a Reticulum transport node. The default port is 4242." = "Connectez-vous à un nœud de transport Reticulum. Le port par défaut est 4242.";
+"Leave the remote host empty for receive-only/broadcast mode. Listen port defaults to the remote port if not specified." = "Laissez l'hôte distant vide pour le mode réception uniquement/diffusion. Le port d'écoute utilise le port distant par défaut si non spécifié.";
+"The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**" = "Le Testnet Reticulum est disponible sur **amsterdam.connect.reticulum.network:4965**";
+
+/* Interfaces View */
+"No Interfaces" = "Aucune interface";
+"Add a TCP interface to connect to the Reticulum network." = "Ajoutez une interface TCP pour vous connecter au réseau Reticulum.";
+"Type" = "Type";
+"Status" = "Statut";
+"Sent" = "Envoyé";
+"Received" = "Reçu";
+
+/* Map */
+"Mesh Map" = "Carte du maillage";
+"Fit All Peers" = "Afficher tous les pairs";
+"Share My Location" = "Partager ma position";
+"Stop Sharing Location" = "Arrêter le partage de position";
+"Location Access" = "Accès à la localisation";
+"Open Settings" = "Ouvrir les paramètres";
+"Location access is required to share your position on the mesh map. Please enable it in Settings." = "L'accès à la localisation est requis pour partager votre position sur la carte du maillage. Veuillez l'activer dans les paramètres.";
+"Open in Maps" = "Ouvrir dans Plans";
+"Peer Details" = "Détails du pair";
+"Done" = "Terminé";
+"Me" = "Moi";
+"Location" = "Position";
+"Latitude" = "Latitude";
+"Longitude" = "Longitude";
+"Last Update" = "Dernière mise à jour";
+"Unknown Peer" = "Pair inconnu";
+"Sharing" = "Partage actif";
+"%lld peers" = "%lld pairs";
+
+/* Identity Export */
+"Identity Backup" = "Sauvegarde de l'identité";
+"Export Identity" = "Exporter l'identité";
+"Password" = "Mot de passe";
+"Confirm Password" = "Confirmer le mot de passe";
+"Export Encrypted Backup" = "Exporter la sauvegarde chiffrée";
+"Import Identity" = "Importer une identité";
+"Import from File" = "Importer depuis un fichier";
+"Current Identity" = "Identité actuelle";
+"Fingerprint" = "Empreinte";
+"Import" = "Importer";
+"Enter Backup Password" = "Saisir le mot de passe de sauvegarde";
+"Passwords do not match" = "Les mots de passe ne correspondent pas";
+"Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network." = "Exportez votre identité cryptographique sous forme de fichier chiffré. Toute personne possédant ce fichier et le mot de passe peut se faire passer pour vous sur le réseau.";
+"Minimum 6 characters. Use a strong, unique password." = "Minimum 6 caractères. Utilisez un mot de passe fort et unique.";
+"Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity." = "Importez une sauvegarde d'identité (fichier .rnid) pour restaurer votre adresse sur cet appareil. Cela remplacera votre identité actuelle.";
+"Export Successful" = "Exportation réussie";
+"Share File" = "Partager le fichier";
+"Your encrypted identity backup has been saved. Keep this file and password safe." = "Votre sauvegarde d'identité chiffrée a été enregistrée. Conservez ce fichier et le mot de passe en lieu sûr.";
+"Enter the password used when the backup was created. This will replace your current identity." = "Saisissez le mot de passe utilisé lors de la création de la sauvegarde. Cela remplacera votre identité actuelle.";
+
+/* Settings */
+"Profile" = "Profil";
+"Display Name" = "Nom d'affichage";
+"Identity Details" = "Détails de l'identité";
+"Backup & Restore" = "Sauvegarde et restauration";
+"Announce on Network" = "Annoncer sur le réseau";
+"Manage Interfaces" = "Gérer les interfaces";
+"Mesh Features" = "Fonctionnalités du maillage";
+"Auto-Announce" = "Annonce automatique";
+"Periodically broadcast your presence on the network." = "Diffusez périodiquement votre présence sur le réseau.";
+"Location Sharing" = "Partage de localisation";
+"Share your GPS position with nearby peers." = "Partagez votre position GPS avec les pairs à proximité.";
+"Transport Mode" = "Mode transport";
+"Relay packets for other nodes on the mesh." = "Relayez les paquets pour les autres nœuds du maillage.";
+"Propagation Node" = "Nœud de propagation";
+"Store and forward messages for offline peers." = "Stockez et transférez les messages pour les pairs hors ligne.";
+"About" = "À propos";
+"Reset Identity" = "Réinitialiser l'identité";
+"Version" = "Version";
+"Protocol" = "Protocole";
+"Messaging" = "Messagerie";
+"About Reticulum Messenger" = "À propos de Reticulum Messenger";
+"Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers." = "L'annonce automatique diffuse votre présence périodiquement. Le mode transport permet à votre appareil de relayer des paquets pour le maillage. Le nœud de propagation stocke les messages pour les pairs hors ligne.";
+"Resetting your identity will generate new cryptographic keys. You will no longer be reachable at your current address." = "La réinitialisation de votre identité générera de nouvelles clés cryptographiques. Vous ne serez plus joignable à votre adresse actuelle.";
+"Reset Identity?" = "Réinitialiser l'identité ?";
+"Reset" = "Réinitialiser";
+"This will generate a new identity. Your current address will become unreachable. This cannot be undone." = "Cela générera une nouvelle identité. Votre adresse actuelle deviendra inaccessible. Cette action est irréversible.";
+
+/* About */
+"Reticulum Messenger" = "Reticulum Messenger";
+"Reticulum Messenger is an open-source iOS client for the Reticulum Network Stack. It uses the LXMF protocol to send and receive encrypted messages over mesh networks, completely independent of traditional internet infrastructure." = "Reticulum Messenger est un client iOS open source pour le stack réseau Reticulum. Il utilise le protocole LXMF pour envoyer et recevoir des messages chiffrés sur des réseaux maillés, totalement indépendant de l'infrastructure internet traditionnelle.";
+"Reticulum" = "Reticulum";
+"Reticulum is a cryptography-based networking protocol designed for unstable and unreliable networks. It provides encrypted, authenticated communication over any medium — from WiFi and cellular to LoRa radio and serial links." = "Reticulum est un protocole réseau basé sur la cryptographie conçu pour les réseaux instables et peu fiables. Il fournit une communication chiffrée et authentifiée sur tout support — du WiFi et du cellulaire à la radio LoRa et aux liaisons série.";
+"LXMF" = "LXMF";
+"LXMF (Lightweight Extensible Message Format) is a messaging protocol built on Reticulum. It supports direct delivery, store-and-forward propagation, and works across any combination of network interfaces." = "LXMF (Lightweight Extensible Message Format) est un protocole de messagerie construit sur Reticulum. Il prend en charge la livraison directe, la propagation store-and-forward, et fonctionne sur toute combinaison d'interfaces réseau.";
+"Privacy" = "Confidentialité";
+"All messages are end-to-end encrypted using modern elliptic curve cryptography (X25519 + Ed25519). Your identity exists only on your device — there are no accounts, servers, or phone numbers." = "Tous les messages sont chiffrés de bout en bout à l'aide d'une cryptographie moderne à courbe elliptique (X25519 + Ed25519). Votre identité n'existe que sur votre appareil — aucun compte, serveur ni numéro de téléphone.";
+"Open Source" = "Open Source";
+"This app is open source under the MIT license. Contributions are welcome! Visit the GitHub repository to get involved." = "Cette application est open source sous licence MIT. Les contributions sont les bienvenues ! Visitez le dépôt GitHub pour participer.";
+"Reticulum Network" = "Réseau Reticulum";
+"LXMF Documentation" = "Documentation LXMF";
+"Sideband (Android)" = "Sideband (Android)";
+
+/* Mesh Graph */
+"You" = "Vous";
+"Interface" = "Interface";
+"Peer" = "Pair";
+"Active" = "Actif";
+
+/* Storage Errors */
+"No identity found to export" = "Aucune identité trouvée à exporter";
+"Cannot access the selected file" = "Impossible d'accéder au fichier sélectionné";
+"Not a valid identity backup file" = "Fichier de sauvegarde d'identité invalide";
+"Backup file version not supported" = "Version du fichier de sauvegarde non prise en charge";
+"Incorrect password" = "Mot de passe incorrect";
+
+/* Common */
+"OK" = "OK";
+"Error" = "Erreur";
+"Save" = "Enregistrer";

@@ -1,0 +1,258 @@
+/* Simplified Chinese (Mandarin)
+   Keys match the English text (Base localization). */
+
+/* Tab Navigation */
+"Messages" = "消息";
+"Map" = "地图";
+"Network" = "网络";
+"Settings" = "设置";
+
+/* Conversations */
+"No Conversations" = "暂无对话";
+"Start a new conversation by tapping the compose button, or wait for incoming messages from the mesh network." = "点击撰写按钮开始新对话，或等待来自网状网络的传入消息。";
+"Pin" = "置顶";
+"Unpin" = "取消置顶";
+"Delete" = "删除";
+"Search conversations" = "搜索对话";
+"New Conversation" = "新建对话";
+"No messages yet" = "暂无消息";
+"Pinned" = "已置顶";
+
+/* Messages */
+"Message" = "消息";
+"Forward Message" = "转发消息";
+"Forward to" = "转发至";
+"Copy" = "复制";
+"Forward" = "转发";
+"Cancel" = "取消";
+"Disappearing messages: %@" = "阅后即焚：%@";
+
+/* Attachments */
+"Photo" = "照片";
+"File" = "文件";
+"Voice Message" = "语音消息";
+
+/* Peer Detail */
+"Peer Info" = "节点信息";
+"Details" = "详情";
+"Destination Hash" = "目标哈希";
+"Last Activity" = "最近活动";
+"Copy Address" = "复制地址";
+"Disappearing Messages" = "阅后即焚";
+"When enabled, messages in this conversation will automatically disappear after the selected time period." = "启用后，此对话中的消息将在选定的时间段后自动删除。";
+"Auto-delete after" = "自动删除时间";
+
+/* Identity */
+"Identity" = "身份";
+"Your Identity" = "你的身份";
+"Identity Hash" = "身份哈希";
+"LXMF Delivery Address" = "LXMF 投递地址";
+"Copy to Clipboard" = "复制到剪贴板";
+"Copied!" = "已复制！";
+"Your identity is a unique cryptographic keypair that identifies you on the Reticulum network. Share your LXMF delivery address with others so they can send you messages." = "你的身份是一个唯一的加密密钥对，用于在 Reticulum 网络上标识你。将你的 LXMF 投递地址分享给他人，以便他们向你发送消息。";
+
+/* Network Status */
+"Local Identity" = "本地身份";
+"LXMF Address" = "LXMF 地址";
+"Initializing..." = "正在初始化...";
+"No interfaces configured" = "未配置接口";
+"Interfaces" = "接口";
+"Tools" = "工具";
+"Mesh Topology" = "网状拓扑";
+"Announce Stream" = "广播流";
+"RNode Device" = "RNode 设备";
+"Discovered Peers" = "已发现的节点";
+"No peers discovered yet" = "尚未发现节点";
+"%lld interface(s) online" = "%lld 个接口在线";
+
+/* Network Status Labels */
+"Disconnected" = "已断开";
+"Connecting..." = "正在连接...";
+"Connected" = "已连接";
+
+/* Disappearing Duration */
+"Off" = "关闭";
+"30 seconds" = "30 秒";
+"5 minutes" = "5 分钟";
+"1 hour" = "1 小时";
+"24 hours" = "24 小时";
+"1 week" = "1 周";
+
+/* New Conversation */
+"Display Name (optional)" = "显示名称（可选）";
+"Create" = "创建";
+"Invalid hex string" = "无效的十六进制字符串";
+"New Message" = "新消息";
+"Enter the LXMF destination hash of the peer you want to message. This is a 32-character hex string." = "输入你要发送消息的节点的 LXMF 目标哈希。这是一个 32 字符的十六进制字符串。";
+
+/* QR Code */
+"QR Code" = "二维码";
+"My Identity" = "我的身份";
+"Scan" = "扫描";
+"Mode" = "模式";
+"Others can scan this code to message you" = "他人可扫描此二维码给你发消息";
+"Camera not available\nEnter address manually" = "相机不可用\n请手动输入地址";
+
+/* Announce Stream */
+"No Announces" = "暂无广播";
+"Network announces will appear here as peers broadcast their presence." = "当节点广播其存在时，网络广播将出现在此处。";
+"Copy Hash" = "复制哈希";
+"Send Message" = "发送消息";
+
+/* RNode */
+"RNode" = "RNode";
+"Connected Device" = "已连接设备";
+"Radio Statistics" = "无线电统计";
+"Radio Configuration" = "无线电配置";
+"Scanning for RNode devices..." = "正在扫描 RNode 设备...";
+"Available Devices" = "可用设备";
+"Stop" = "停止";
+"Long Range" = "远距离";
+"Balanced" = "均衡";
+"Fast" = "快速";
+"Disconnect" = "断开连接";
+"Firmware" = "固件";
+"Firmware: %@" = "固件：%@";
+"Last RSSI" = "最近 RSSI";
+"Last SNR" = "最近 SNR";
+"TX Power" = "发射功率";
+"TX Power: %lld dBm" = "发射功率：%lld dBm";
+"Signal: %lld dBm" = "信号：%lld dBm";
+"Radio" = "无线电";
+"Online" = "在线";
+"Offline" = "离线";
+"Frequency" = "频率";
+"Bandwidth" = "带宽";
+"Spreading Factor" = "扩频因子";
+"Coding Rate" = "编码率";
+"Apply Configuration" = "应用配置";
+"Quick Presets" = "快速预设";
+
+/* Interface Config */
+"Interface Type" = "接口类型";
+"Interface Name" = "接口名称";
+"Add Interface" = "添加接口";
+"Connect" = "连接";
+"Connection Error" = "连接错误";
+"TCP Connection" = "TCP 连接";
+"UDP Connection" = "UDP 连接";
+"Use Testnet" = "使用测试网";
+"Host" = "主机";
+"Port" = "端口";
+"Remote Host (optional)" = "远程主机（可选）";
+"Remote Port" = "远程端口";
+"Listen Port (optional)" = "监听端口（可选）";
+"A friendly name for this connection (e.g., \"Home Node\")." = "此连接的友好名称（例如\u201C家庭节点\u201D）。";
+"Connect to a Reticulum transport node. The default port is 4242." = "连接到 Reticulum 传输节点。默认端口为 4242。";
+"Leave the remote host empty for receive-only/broadcast mode. Listen port defaults to the remote port if not specified." = "将远程主机留空以进入仅接收/广播模式。若未指定，监听端口默认为远程端口。";
+"The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**" = "Reticulum 测试网地址为 **amsterdam.connect.reticulum.network:4965**";
+
+/* Interfaces View */
+"No Interfaces" = "无接口";
+"Add a TCP interface to connect to the Reticulum network." = "添加 TCP 接口以连接到 Reticulum 网络。";
+"Type" = "类型";
+"Status" = "状态";
+"Sent" = "已发送";
+"Received" = "已接收";
+
+/* Map */
+"Mesh Map" = "网状地图";
+"Fit All Peers" = "显示所有节点";
+"Share My Location" = "分享我的位置";
+"Stop Sharing Location" = "停止分享位置";
+"Location Access" = "位置权限";
+"Open Settings" = "打开设置";
+"Location access is required to share your position on the mesh map. Please enable it in Settings." = "需要位置权限才能在网状地图上分享你的位置。请在设置中启用。";
+"Open in Maps" = "在地图中打开";
+"Peer Details" = "节点详情";
+"Done" = "完成";
+"Me" = "我";
+"Location" = "位置";
+"Latitude" = "纬度";
+"Longitude" = "经度";
+"Last Update" = "最近更新";
+"Unknown Peer" = "未知节点";
+"Sharing" = "分享中";
+"%lld peers" = "%lld 个节点";
+
+/* Identity Export */
+"Identity Backup" = "身份备份";
+"Export Identity" = "导出身份";
+"Password" = "密码";
+"Confirm Password" = "确认密码";
+"Export Encrypted Backup" = "导出加密备份";
+"Import Identity" = "导入身份";
+"Import from File" = "从文件导入";
+"Current Identity" = "当前身份";
+"Fingerprint" = "指纹";
+"Import" = "导入";
+"Enter Backup Password" = "输入备份密码";
+"Passwords do not match" = "密码不匹配";
+"Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network." = "将你的加密身份导出为加密文件。拥有此文件和密码的任何人都可以在网络上冒充你。";
+"Minimum 6 characters. Use a strong, unique password." = "至少 6 个字符。请使用强而唯一的密码。";
+"Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity." = "导入身份备份（.rnid 文件）以在此设备上恢复你的地址。这将替换你的当前身份。";
+"Export Successful" = "导出成功";
+"Share File" = "分享文件";
+"Your encrypted identity backup has been saved. Keep this file and password safe." = "你的加密身份备份已保存。请妥善保管此文件和密码。";
+"Enter the password used when the backup was created. This will replace your current identity." = "输入创建备份时使用的密码。这将替换你的当前身份。";
+
+/* Settings */
+"Profile" = "个人资料";
+"Display Name" = "显示名称";
+"Identity Details" = "身份详情";
+"Backup & Restore" = "备份与恢复";
+"Announce on Network" = "在网络上广播";
+"Manage Interfaces" = "管理接口";
+"Mesh Features" = "网状功能";
+"Auto-Announce" = "自动广播";
+"Periodically broadcast your presence on the network." = "定期在网络上广播你的存在。";
+"Location Sharing" = "位置共享";
+"Share your GPS position with nearby peers." = "与附近的节点共享你的 GPS 位置。";
+"Transport Mode" = "传输模式";
+"Relay packets for other nodes on the mesh." = "为网状网络上的其他节点中继数据包。";
+"Propagation Node" = "传播节点";
+"Store and forward messages for offline peers." = "为离线节点存储和转发消息。";
+"About" = "关于";
+"Reset Identity" = "重置身份";
+"Version" = "版本";
+"Protocol" = "协议";
+"Messaging" = "消息传递";
+"About Reticulum Messenger" = "关于 Reticulum Messenger";
+"Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers." = "自动广播会定期播报你的存在。传输模式允许你的设备为网状网络中继数据包。传播节点为离线节点存储消息。";
+"Resetting your identity will generate new cryptographic keys. You will no longer be reachable at your current address." = "重置你的身份将生成新的加密密钥。你将无法再通过当前地址被联系到。";
+"Reset Identity?" = "重置身份？";
+"Reset" = "重置";
+"This will generate a new identity. Your current address will become unreachable. This cannot be undone." = "这将生成一个新身份。你的当前地址将变得无法访问。此操作无法撤销。";
+
+/* About */
+"Reticulum Messenger" = "Reticulum Messenger";
+"Reticulum Messenger is an open-source iOS client for the Reticulum Network Stack. It uses the LXMF protocol to send and receive encrypted messages over mesh networks, completely independent of traditional internet infrastructure." = "Reticulum Messenger 是一款用于 Reticulum 网络协议栈的开源 iOS 客户端。它使用 LXMF 协议在网状网络上发送和接收加密消息，完全独立于传统互联网基础设施。";
+"Reticulum" = "Reticulum";
+"Reticulum is a cryptography-based networking protocol designed for unstable and unreliable networks. It provides encrypted, authenticated communication over any medium — from WiFi and cellular to LoRa radio and serial links." = "Reticulum 是一种基于密码学的网络协议，专为不稳定和不可靠的网络设计。它通过任何媒介提供加密、经过认证的通信——从 WiFi 和蜂窝网络到 LoRa 无线电和串行链路。";
+"LXMF" = "LXMF";
+"LXMF (Lightweight Extensible Message Format) is a messaging protocol built on Reticulum. It supports direct delivery, store-and-forward propagation, and works across any combination of network interfaces." = "LXMF（轻量级可扩展消息格式）是建立在 Reticulum 上的消息传递协议。它支持直接投递、存储转发传播，并可跨任意网络接口组合工作。";
+"Privacy" = "隐私";
+"All messages are end-to-end encrypted using modern elliptic curve cryptography (X25519 + Ed25519). Your identity exists only on your device — there are no accounts, servers, or phone numbers." = "所有消息均使用现代椭圆曲线密码学（X25519 + Ed25519）进行端到端加密。你的身份仅存在于你的设备上——没有账户、服务器或电话号码。";
+"Open Source" = "开源";
+"This app is open source under the MIT license. Contributions are welcome! Visit the GitHub repository to get involved." = "本应用在 MIT 许可证下开源。欢迎贡献代码！访问 GitHub 仓库参与其中。";
+"Reticulum Network" = "Reticulum 网络";
+"LXMF Documentation" = "LXMF 文档";
+"Sideband (Android)" = "Sideband（Android）";
+
+/* Mesh Graph */
+"You" = "你";
+"Interface" = "接口";
+"Peer" = "节点";
+"Active" = "活跃";
+
+/* Storage Errors */
+"No identity found to export" = "没有可导出的身份";
+"Cannot access the selected file" = "无法访问所选文件";
+"Not a valid identity backup file" = "不是有效的身份备份文件";
+"Backup file version not supported" = "不支持的备份文件版本";
+"Incorrect password" = "密码错误";
+
+/* Common */
+"OK" = "确定";
+"Error" = "错误";
+"Save" = "保存";

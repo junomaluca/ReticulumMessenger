@@ -77,7 +77,7 @@ struct AboutView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func infoSection(title: String, text: String) -> some View {
+    private func infoSection(title: LocalizedStringKey, text: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.headline)
@@ -87,7 +87,7 @@ struct AboutView: View {
         }
     }
 
-    private func linkButton(title: String, url: String, icon: String) -> some View {
+    private func linkButton(title: LocalizedStringKey, url: String, icon: String) -> some View {
         Link(destination: URL(string: url)!) {
             HStack {
                 Image(systemName: icon)

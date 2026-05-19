@@ -1,0 +1,257 @@
+/* Hindi — Keys are English text matching the English localization file */
+
+/* Tab Navigation */
+"Messages" = "संदेश";
+"Map" = "मानचित्र";
+"Network" = "नेटवर्क";
+"Settings" = "सेटिंग्स";
+
+/* Conversations */
+"No Conversations" = "कोई वार्तालाप नहीं";
+"Start a new conversation by tapping the compose button, or wait for incoming messages from the mesh network." = "कंपोज़ बटन दबाकर नया वार्तालाप शुरू करें, या मेश नेटवर्क से आने वाले संदेशों का इंतज़ार करें।";
+"Pin" = "पिन करें";
+"Unpin" = "अनपिन करें";
+"Delete" = "हटाएं";
+"Search conversations" = "वार्तालाप खोजें";
+"New Conversation" = "नया वार्तालाप";
+"No messages yet" = "अभी कोई संदेश नहीं";
+"Pinned" = "पिन किए गए";
+
+/* Messages */
+"Message" = "संदेश";
+"Forward Message" = "संदेश अग्रेषित करें";
+"Forward to" = "अग्रेषित करें";
+"Copy" = "कॉपी";
+"Forward" = "अग्रेषित";
+"Cancel" = "रद्द करें";
+"Disappearing messages: %@" = "गायब होने वाले संदेश: %@";
+
+/* Attachments */
+"Photo" = "फ़ोटो";
+"File" = "फ़ाइल";
+"Voice Message" = "वॉइस मैसेज";
+
+/* Peer Detail */
+"Peer Info" = "पीयर जानकारी";
+"Details" = "विवरण";
+"Destination Hash" = "गंतव्य हैश";
+"Last Activity" = "अंतिम गतिविधि";
+"Copy Address" = "पता कॉपी करें";
+"Disappearing Messages" = "गायब होने वाले संदेश";
+"When enabled, messages in this conversation will automatically disappear after the selected time period." = "सक्षम होने पर, इस वार्तालाप के संदेश चयनित समय अवधि के बाद स्वचालित रूप से हट जाएंगे।";
+"Auto-delete after" = "स्वतः हटाएं";
+
+/* Identity */
+"Identity" = "पहचान";
+"Your Identity" = "आपकी पहचान";
+"Identity Hash" = "पहचान हैश";
+"LXMF Delivery Address" = "LXMF वितरण पता";
+"Copy to Clipboard" = "क्लिपबोर्ड पर कॉपी करें";
+"Copied!" = "कॉपी हो गया!";
+"Your identity is a unique cryptographic keypair that identifies you on the Reticulum network. Share your LXMF delivery address with others so they can send you messages." = "आपकी पहचान एक अद्वितीय क्रिप्टोग्राफ़िक की-पेयर है जो Reticulum नेटवर्क पर आपकी पहचान करती है। दूसरों को अपना LXMF वितरण पता साझा करें ताकि वे आपको संदेश भेज सकें।";
+
+/* Network Status */
+"Local Identity" = "स्थानीय पहचान";
+"LXMF Address" = "LXMF पता";
+"Initializing..." = "आरंभ हो रहा है...";
+"No interfaces configured" = "कोई इंटरफ़ेस कॉन्फ़िगर नहीं";
+"Interfaces" = "इंटरफ़ेस";
+"Tools" = "उपकरण";
+"Mesh Topology" = "मेश टोपोलॉजी";
+"Announce Stream" = "घोषणा स्ट्रीम";
+"RNode Device" = "RNode डिवाइस";
+"Discovered Peers" = "खोजे गए पीयर";
+"No peers discovered yet" = "अभी तक कोई पीयर नहीं मिला";
+"%lld interface(s) online" = "%lld इंटरफ़ेस ऑनलाइन";
+
+/* Network Status Labels */
+"Disconnected" = "डिस्कनेक्ट";
+"Connecting..." = "कनेक्ट हो रहा है...";
+"Connected" = "कनेक्टेड";
+
+/* Disappearing Duration */
+"Off" = "बंद";
+"30 seconds" = "30 सेकंड";
+"5 minutes" = "5 मिनट";
+"1 hour" = "1 घंटा";
+"24 hours" = "24 घंटे";
+"1 week" = "1 सप्ताह";
+
+/* New Conversation */
+"Display Name (optional)" = "प्रदर्शन नाम (वैकल्पिक)";
+"Create" = "बनाएं";
+"Invalid hex string" = "अमान्य हेक्स स्ट्रिंग";
+"New Message" = "नया संदेश";
+"Enter the LXMF destination hash of the peer you want to message. This is a 32-character hex string." = "जिस पीयर को संदेश भेजना चाहते हैं उसका LXMF डेस्टिनेशन हैश दर्ज करें। यह 32 अक्षरों की हेक्स स्ट्रिंग है।";
+
+/* QR Code */
+"QR Code" = "QR कोड";
+"My Identity" = "मेरी पहचान";
+"Scan" = "स्कैन";
+"Mode" = "मोड";
+"Others can scan this code to message you" = "अन्य लोग आपको संदेश भेजने के लिए इस कोड को स्कैन कर सकते हैं";
+"Camera not available\nEnter address manually" = "कैमरा उपलब्ध नहीं\nपता मैन्युअली दर्ज करें";
+
+/* Announce Stream */
+"No Announces" = "कोई घोषणा नहीं";
+"Network announces will appear here as peers broadcast their presence." = "जब पीयर अपनी उपस्थिति प्रसारित करेंगे तो नेटवर्क घोषणाएं यहां दिखाई देंगी।";
+"Copy Hash" = "हैश कॉपी करें";
+"Send Message" = "संदेश भेजें";
+
+/* RNode */
+"RNode" = "RNode";
+"Connected Device" = "कनेक्टेड डिवाइस";
+"Radio Statistics" = "रेडियो आंकड़े";
+"Radio Configuration" = "रेडियो कॉन्फ़िगरेशन";
+"Scanning for RNode devices..." = "RNode डिवाइस खोज रहा है...";
+"Available Devices" = "उपलब्ध डिवाइस";
+"Stop" = "रोकें";
+"Long Range" = "लंबी दूरी";
+"Balanced" = "संतुलित";
+"Fast" = "तेज़";
+"Disconnect" = "डिस्कनेक्ट";
+"Firmware" = "फर्मवेयर";
+"Firmware: %@" = "फर्मवेयर: %@";
+"Last RSSI" = "अंतिम RSSI";
+"Last SNR" = "अंतिम SNR";
+"TX Power" = "TX पावर";
+"TX Power: %lld dBm" = "TX पावर: %lld dBm";
+"Signal: %lld dBm" = "सिग्नल: %lld dBm";
+"Radio" = "रेडियो";
+"Online" = "ऑनलाइन";
+"Offline" = "ऑफ़लाइन";
+"Frequency" = "आवृत्ति";
+"Bandwidth" = "बैंडविड्थ";
+"Spreading Factor" = "स्प्रेडिंग फ़ैक्टर";
+"Coding Rate" = "कोडिंग दर";
+"Apply Configuration" = "कॉन्फ़िगरेशन लागू करें";
+"Quick Presets" = "त्वरित प्रीसेट";
+
+/* Interface Config */
+"Interface Type" = "इंटरफ़ेस प्रकार";
+"Interface Name" = "इंटरफ़ेस नाम";
+"Add Interface" = "इंटरफ़ेस जोड़ें";
+"Connect" = "कनेक्ट";
+"Connection Error" = "कनेक्शन त्रुटि";
+"TCP Connection" = "TCP कनेक्शन";
+"UDP Connection" = "UDP कनेक्शन";
+"Use Testnet" = "टेस्टनेट उपयोग करें";
+"Host" = "होस्ट";
+"Port" = "पोर्ट";
+"Remote Host (optional)" = "रिमोट होस्ट (वैकल्पिक)";
+"Remote Port" = "रिमोट पोर्ट";
+"Listen Port (optional)" = "सुनने का पोर्ट (वैकल्पिक)";
+"A friendly name for this connection (e.g., \"Home Node\")." = "इस कनेक्शन के लिए एक पहचानने योग्य नाम (जैसे, \"होम नोड\")।";
+"Connect to a Reticulum transport node. The default port is 4242." = "Reticulum ट्रांसपोर्ट नोड से कनेक्ट करें। डिफ़ॉल्ट पोर्ट 4242 है।";
+"Leave the remote host empty for receive-only/broadcast mode. Listen port defaults to the remote port if not specified." = "केवल प्राप्त/ब्रॉडकास्ट मोड के लिए रिमोट होस्ट खाली रखें। यदि निर्दिष्ट न हो तो लिसेन पोर्ट डिफ़ॉल्ट रूप से रिमोट पोर्ट होगा।";
+"The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**" = "Reticulum टेस्टनेट **amsterdam.connect.reticulum.network:4965** पर उपलब्ध है";
+
+/* Interfaces View */
+"No Interfaces" = "कोई इंटरफ़ेस नहीं";
+"Add a TCP interface to connect to the Reticulum network." = "Reticulum नेटवर्क से कनेक्ट करने के लिए TCP इंटरफ़ेस जोड़ें।";
+"Type" = "प्रकार";
+"Status" = "स्थिति";
+"Sent" = "भेजा गया";
+"Received" = "प्राप्त";
+
+/* Map */
+"Mesh Map" = "मेश मानचित्र";
+"Fit All Peers" = "सभी पीयर दिखाएं";
+"Share My Location" = "मेरा स्थान साझा करें";
+"Stop Sharing Location" = "स्थान साझा करना बंद करें";
+"Location Access" = "स्थान एक्सेस";
+"Open Settings" = "सेटिंग्स खोलें";
+"Location access is required to share your position on the mesh map. Please enable it in Settings." = "मेश मानचित्र पर अपनी स्थिति साझा करने के लिए स्थान एक्सेस आवश्यक है। कृपया इसे सेटिंग्स में सक्षम करें।";
+"Open in Maps" = "मैप्स में खोलें";
+"Peer Details" = "पीयर विवरण";
+"Done" = "पूर्ण";
+"Me" = "मैं";
+"Location" = "स्थान";
+"Latitude" = "अक्षांश";
+"Longitude" = "देशांतर";
+"Last Update" = "अंतिम अपडेट";
+"Unknown Peer" = "अज्ञात पीयर";
+"Sharing" = "साझा कर रहे हैं";
+"%lld peers" = "%lld पीयर";
+
+/* Identity Export */
+"Identity Backup" = "पहचान बैकअप";
+"Export Identity" = "पहचान निर्यात करें";
+"Password" = "पासवर्ड";
+"Confirm Password" = "पासवर्ड की पुष्टि करें";
+"Export Encrypted Backup" = "एन्क्रिप्टेड बैकअप निर्यात करें";
+"Import Identity" = "पहचान आयात करें";
+"Import from File" = "फ़ाइल से आयात करें";
+"Current Identity" = "वर्तमान पहचान";
+"Fingerprint" = "फिंगरप्रिंट";
+"Import" = "आयात";
+"Enter Backup Password" = "बैकअप पासवर्ड दर्ज करें";
+"Passwords do not match" = "पासवर्ड मेल नहीं खाते";
+"Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network." = "अपनी क्रिप्टोग्राफ़िक पहचान को एन्क्रिप्टेड फ़ाइल के रूप में निर्यात करें। इस फ़ाइल और पासवर्ड वाला कोई भी व्यक्ति नेटवर्क पर आपका रूप धारण कर सकता है।";
+"Minimum 6 characters. Use a strong, unique password." = "न्यूनतम 6 अक्षर। एक मजबूत, अनूठा पासवर्ड उपयोग करें।";
+"Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity." = "इस डिवाइस पर अपना पता पुनर्स्थापित करने के लिए पहचान बैकअप (.rnid फ़ाइल) आयात करें। यह आपकी वर्तमान पहचान को बदल देगा।";
+"Export Successful" = "निर्यात सफल";
+"Share File" = "फ़ाइल साझा करें";
+"Your encrypted identity backup has been saved. Keep this file and password safe." = "आपका एन्क्रिप्टेड पहचान बैकअप सहेज लिया गया है। इस फ़ाइल और पासवर्ड को सुरक्षित रखें।";
+"Enter the password used when the backup was created. This will replace your current identity." = "बैकअप बनाते समय उपयोग किया गया पासवर्ड दर्ज करें। यह आपकी वर्तमान पहचान को बदल देगा।";
+
+/* Settings */
+"Profile" = "प्रोफ़ाइल";
+"Display Name" = "प्रदर्शन नाम";
+"Identity Details" = "पहचान विवरण";
+"Backup & Restore" = "बैकअप और पुनर्स्थापना";
+"Announce on Network" = "नेटवर्क पर घोषणा";
+"Manage Interfaces" = "इंटरफ़ेस प्रबंधित करें";
+"Mesh Features" = "मेश सुविधाएं";
+"Auto-Announce" = "स्वतः घोषणा";
+"Periodically broadcast your presence on the network." = "नेटवर्क पर समय-समय पर अपनी उपस्थिति प्रसारित करें।";
+"Location Sharing" = "स्थान साझाकरण";
+"Share your GPS position with nearby peers." = "पास के पीयर के साथ अपनी GPS स्थिति साझा करें।";
+"Transport Mode" = "ट्रांसपोर्ट मोड";
+"Relay packets for other nodes on the mesh." = "मेश पर अन्य नोड्स के लिए पैकेट रिले करें।";
+"Propagation Node" = "प्रसार नोड";
+"Store and forward messages for offline peers." = "ऑफ़लाइन पीयर के लिए संदेश संग्रहीत और अग्रेषित करें।";
+"About" = "बारे में";
+"Reset Identity" = "पहचान रीसेट करें";
+"Version" = "संस्करण";
+"Protocol" = "प्रोटोकॉल";
+"Messaging" = "मैसेजिंग";
+"About Reticulum Messenger" = "Reticulum Messenger के बारे में";
+"Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers." = "ऑटो-अनाउंस समय-समय पर आपकी उपस्थिति प्रसारित करता है। ट्रांसपोर्ट मोड आपके डिवाइस को मेश के लिए पैकेट रिले करने देता है। प्रसार नोड ऑफ़लाइन पीयर के लिए संदेश संग्रहीत करता है।";
+"Resetting your identity will generate new cryptographic keys. You will no longer be reachable at your current address." = "आपकी पहचान रीसेट करने से नई क्रिप्टोग्राफ़िक कुंजियां उत्पन्न होंगी। आप अपने वर्तमान पते पर अब पहुंच योग्य नहीं रहेंगे।";
+"Reset Identity?" = "पहचान रीसेट करें?";
+"Reset" = "रीसेट";
+"This will generate a new identity. Your current address will become unreachable. This cannot be undone." = "यह एक नई पहचान उत्पन्न करेगा। आपका वर्तमान पता अनुपलब्ध हो जाएगा। इसे पूर्ववत नहीं किया जा सकता।";
+
+/* About */
+"Reticulum Messenger" = "Reticulum Messenger";
+"Reticulum Messenger is an open-source iOS client for the Reticulum Network Stack. It uses the LXMF protocol to send and receive encrypted messages over mesh networks, completely independent of traditional internet infrastructure." = "Reticulum Messenger, Reticulum नेटवर्क स्टैक के लिए एक ओपन-सोर्स iOS क्लाइंट है। यह मेश नेटवर्क पर एन्क्रिप्टेड संदेश भेजने और प्राप्त करने के लिए LXMF प्रोटोकॉल का उपयोग करता है, पारंपरिक इंटरनेट बुनियादी ढांचे से पूरी तरह स्वतंत्र।";
+"Reticulum" = "Reticulum";
+"Reticulum is a cryptography-based networking protocol designed for unstable and unreliable networks. It provides encrypted, authenticated communication over any medium — from WiFi and cellular to LoRa radio and serial links." = "Reticulum एक क्रिप्टोग्राफ़ी-आधारित नेटवर्किंग प्रोटोकॉल है जो अस्थिर और अविश्वसनीय नेटवर्क के लिए डिज़ाइन किया गया है। यह किसी भी माध्यम पर एन्क्रिप्टेड, प्रमाणित संचार प्रदान करता है — WiFi और सेल्युलर से LoRa रेडियो और सीरियल लिंक तक।";
+"LXMF" = "LXMF";
+"LXMF (Lightweight Extensible Message Format) is a messaging protocol built on Reticulum. It supports direct delivery, store-and-forward propagation, and works across any combination of network interfaces." = "LXMF (लाइटवेट एक्सटेंसिबल मैसेज फ़ॉर्मेट) Reticulum पर निर्मित एक मैसेजिंग प्रोटोकॉल है। यह प्रत्यक्ष डिलीवरी, स्टोर-एंड-फ़ॉरवर्ड प्रचार का समर्थन करता है, और नेटवर्क इंटरफ़ेस के किसी भी संयोजन में काम करता है।";
+"Privacy" = "गोपनीयता";
+"All messages are end-to-end encrypted using modern elliptic curve cryptography (X25519 + Ed25519). Your identity exists only on your device — there are no accounts, servers, or phone numbers." = "सभी संदेश आधुनिक एलिप्टिक कर्व क्रिप्टोग्राफ़ी (X25519 + Ed25519) का उपयोग करके एंड-टू-एंड एन्क्रिप्टेड हैं। आपकी पहचान केवल आपके डिवाइस पर मौजूद है — कोई अकाउंट नहीं, कोई सर्वर नहीं, कोई फ़ोन नंबर नहीं।";
+"Open Source" = "ओपन सोर्स";
+"This app is open source under the MIT license. Contributions are welcome! Visit the GitHub repository to get involved." = "यह ऐप MIT लाइसेंस के तहत ओपन सोर्स है। योगदान का स्वागत है! शामिल होने के लिए GitHub रिपॉजिटरी पर जाएं।";
+"Reticulum Network" = "Reticulum नेटवर्क";
+"LXMF Documentation" = "LXMF दस्तावेज़ीकरण";
+"Sideband (Android)" = "Sideband (Android)";
+
+/* Mesh Graph */
+"You" = "आप";
+"Interface" = "इंटरफ़ेस";
+"Peer" = "पीयर";
+"Active" = "सक्रिय";
+
+/* Storage Errors */
+"No identity found to export" = "निर्यात करने के लिए कोई पहचान नहीं मिली";
+"Cannot access the selected file" = "चयनित फ़ाइल तक पहुंच नहीं हो सकती";
+"Not a valid identity backup file" = "यह एक वैध पहचान बैकअप फ़ाइल नहीं है";
+"Backup file version not supported" = "बैकअप फ़ाइल संस्करण समर्थित नहीं है";
+"Incorrect password" = "गलत पासवर्ड";
+
+/* Common */
+"OK" = "ठीक";
+"Error" = "त्रुटि";
+"Save" = "सहेजें";

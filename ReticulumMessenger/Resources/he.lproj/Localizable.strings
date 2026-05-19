@@ -1,0 +1,257 @@
+/* Hebrew — he */
+
+/* Tab Navigation */
+"Messages" = "הודעות";
+"Map" = "מפה";
+"Network" = "רשת";
+"Settings" = "הגדרות";
+
+/* Conversations */
+"No Conversations" = "אין שיחות";
+"Start a new conversation by tapping the compose button, or wait for incoming messages from the mesh network." = "התחל שיחה על ידי לחיצה על כפתור עריכה, או המתן להודעות נכנסות מרשת ה-mesh.";
+"Pin" = "הצמד";
+"Unpin" = "בטל הצמדה";
+"Delete" = "מחק";
+"Search conversations" = "חפש שיחות";
+"New Conversation" = "שיחה חדשה";
+"No messages yet" = "אין הודעות עדיין";
+"Pinned" = "מוצמד";
+
+/* Messages */
+"Message" = "הודעה";
+"Forward Message" = "העבר הודעה";
+"Forward to" = "העבר אל";
+"Copy" = "העתק";
+"Forward" = "העבר";
+"Cancel" = "בטל";
+"Disappearing messages: %@" = "הודעות נעלמות: %@";
+
+/* Attachments */
+"Photo" = "תמונה";
+"File" = "קובץ";
+"Voice Message" = "הודעה קולית";
+
+/* Peer Detail */
+"Peer Info" = "מידע על עמית";
+"Details" = "פרטים";
+"Destination Hash" = "גיבוב יעד";
+"Last Activity" = "פעילות אחרונה";
+"Copy Address" = "העתק כתובת";
+"Disappearing Messages" = "הודעות נעלמות";
+"When enabled, messages in this conversation will automatically disappear after the selected time period." = "כאשר מופעל, הודעות בשיחה זו יימחקו אוטומטית לאחר פרק הזמן שנבחר.";
+"Auto-delete after" = "מחק אוטומטית לאחר";
+
+/* Identity */
+"Identity" = "זהות";
+"Your Identity" = "הזהות שלך";
+"Identity Hash" = "גיבוב זהות";
+"LXMF Delivery Address" = "כתובת מסירת LXMF";
+"Copy to Clipboard" = "העתק ללוח";
+"Copied!" = "הועתק!";
+"Your identity is a unique cryptographic keypair that identifies you on the Reticulum network. Share your LXMF delivery address with others so they can send you messages." = "זהותך היא זוג מפתחות קריפטוגרפי ייחודי המזהה אותך ברשת Reticulum. שתף את כתובת מסירת ה-LXMF שלך עם אחרים כדי שיוכלו לשלוח לך הודעות.";
+
+/* Network Status */
+"Local Identity" = "זהות מקומית";
+"LXMF Address" = "כתובת LXMF";
+"Initializing..." = "מאתחל...";
+"No interfaces configured" = "לא הוגדרו ממשקים";
+"Interfaces" = "ממשקים";
+"Tools" = "כלים";
+"Mesh Topology" = "טופולוגיית רשת";
+"Announce Stream" = "זרם הכרזות";
+"RNode Device" = "התקן RNode";
+"Discovered Peers" = "עמיתים שהתגלו";
+"No peers discovered yet" = "לא התגלו עמיתים עדיין";
+"%lld interface(s) online" = "%lld ממשק(ים) מחובר(ים)";
+
+/* Network Status Labels */
+"Disconnected" = "מנותק";
+"Connecting..." = "מתחבר...";
+"Connected" = "מחובר";
+
+/* Disappearing Duration */
+"Off" = "כבוי";
+"30 seconds" = "30 שניות";
+"5 minutes" = "5 דקות";
+"1 hour" = "שעה אחת";
+"24 hours" = "24 שעות";
+"1 week" = "שבוע אחד";
+
+/* New Conversation */
+"Display Name (optional)" = "שם תצוגה (אופציונלי)";
+"Create" = "צור";
+"Invalid hex string" = "מחרוזת הקסדצימלית לא חוקית";
+"New Message" = "הודעה חדשה";
+"Enter the LXMF destination hash of the peer you want to message. This is a 32-character hex string." = "הזן את גיבוב היעד LXMF של העמית שאתה רוצה לשלוח אליו הודעה. זוהי מחרוזת hex בת 32 תווים.";
+
+/* QR Code */
+"QR Code" = "קוד QR";
+"My Identity" = "הזהות שלי";
+"Scan" = "סרוק";
+"Mode" = "מצב";
+"Others can scan this code to message you" = "אחרים יכולים לסרוק קוד זה כדי לשלוח לך הודעות";
+"Camera not available\nEnter address manually" = "המצלמה אינה זמינה\nהזן כתובת ידנית";
+
+/* Announce Stream */
+"No Announces" = "אין הכרזות";
+"Network announces will appear here as peers broadcast their presence." = "הכרזות רשת יופיעו כאן כאשר עמיתים ישדרו את נוכחותם.";
+"Copy Hash" = "העתק גיבוב";
+"Send Message" = "שלח הודעה";
+
+/* RNode */
+"RNode" = "RNode";
+"Connected Device" = "התקן מחובר";
+"Radio Statistics" = "סטטיסטיקות רדיו";
+"Radio Configuration" = "תצורת רדיו";
+"Scanning for RNode devices..." = "סורק התקני RNode...";
+"Available Devices" = "התקנים זמינים";
+"Stop" = "עצור";
+"Long Range" = "טווח ארוך";
+"Balanced" = "מאוזן";
+"Fast" = "מהיר";
+"Disconnect" = "נתק";
+"Firmware" = "קושחה";
+"Firmware: %@" = "קושחה: %@";
+"Last RSSI" = "RSSI אחרון";
+"Last SNR" = "SNR אחרון";
+"TX Power" = "עוצמת שידור";
+"TX Power: %lld dBm" = "עוצמת שידור: %lld dBm";
+"Signal: %lld dBm" = "אות: %lld dBm";
+"Radio" = "רדיו";
+"Online" = "מקוון";
+"Offline" = "לא מקוון";
+"Frequency" = "תדר";
+"Bandwidth" = "רוחב פס";
+"Spreading Factor" = "מקדם פיזור";
+"Coding Rate" = "קצב קידוד";
+"Apply Configuration" = "החל תצורה";
+"Quick Presets" = "הגדרות מהירות";
+
+/* Interface Config */
+"Interface Type" = "סוג ממשק";
+"Interface Name" = "שם ממשק";
+"Add Interface" = "הוסף ממשק";
+"Connect" = "התחבר";
+"Connection Error" = "שגיאת חיבור";
+"TCP Connection" = "חיבור TCP";
+"UDP Connection" = "חיבור UDP";
+"Use Testnet" = "השתמש ב-Testnet";
+"Host" = "מארח";
+"Port" = "פורט";
+"Remote Host (optional)" = "מארח מרוחק (אופציונלי)";
+"Remote Port" = "פורט מרוחק";
+"Listen Port (optional)" = "פורט האזנה (אופציונלי)";
+"A friendly name for this connection (e.g., \"Home Node\")." = "שם ידידותי לחיבור זה (לדוגמה, \"צומת ביתי\").";
+"Connect to a Reticulum transport node. The default port is 4242." = "התחבר לצומת תעבורת Reticulum. הפורט ברירת המחדל הוא 4242.";
+"Leave the remote host empty for receive-only/broadcast mode. Listen port defaults to the remote port if not specified." = "השאר את המארח המרוחק ריק למצב קבלה בלבד/שידור. פורט ההאזנה ברירת מחדל הוא הפורט המרוחק אם לא צוין.";
+"The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**" = "רשת ה-Testnet של Reticulum זמינה בכתובת **amsterdam.connect.reticulum.network:4965**";
+
+/* Interfaces View */
+"No Interfaces" = "אין ממשקים";
+"Add a TCP interface to connect to the Reticulum network." = "הוסף ממשק TCP כדי להתחבר לרשת Reticulum.";
+"Type" = "סוג";
+"Status" = "סטטוס";
+"Sent" = "נשלח";
+"Received" = "התקבל";
+
+/* Map */
+"Mesh Map" = "מפת רשת";
+"Fit All Peers" = "הצג את כל העמיתים";
+"Share My Location" = "שתף את מיקומי";
+"Stop Sharing Location" = "הפסק שיתוף מיקום";
+"Location Access" = "גישה למיקום";
+"Open Settings" = "פתח הגדרות";
+"Location access is required to share your position on the mesh map. Please enable it in Settings." = "נדרשת גישה למיקום כדי לשתף את מיקומך במפת הרשת. אנא הפעל זאת בהגדרות.";
+"Open in Maps" = "פתח במפות";
+"Peer Details" = "פרטי עמית";
+"Done" = "סיום";
+"Me" = "אני";
+"Location" = "מיקום";
+"Latitude" = "קו רוחב";
+"Longitude" = "קו אורך";
+"Last Update" = "עדכון אחרון";
+"Unknown Peer" = "עמית לא ידוע";
+"Sharing" = "משתף";
+"%lld peers" = "%lld עמיתים";
+
+/* Identity Export */
+"Identity Backup" = "גיבוי זהות";
+"Export Identity" = "ייצא זהות";
+"Password" = "סיסמה";
+"Confirm Password" = "אשר סיסמה";
+"Export Encrypted Backup" = "ייצא גיבוי מוצפן";
+"Import Identity" = "ייבא זהות";
+"Import from File" = "ייבא מקובץ";
+"Current Identity" = "זהות נוכחית";
+"Fingerprint" = "טביעת אצבע";
+"Import" = "ייבא";
+"Enter Backup Password" = "הזן סיסמת גיבוי";
+"Passwords do not match" = "הסיסמאות אינן תואמות";
+"Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network." = "ייצא את זהותך הקריפטוגרפית כקובץ מוצפן. כל מי שיש לו את הקובץ הזה והסיסמה יכול להתחזות לך ברשת.";
+"Minimum 6 characters. Use a strong, unique password." = "מינימום 6 תווים. השתמש בסיסמה חזקה וייחודית.";
+"Import an identity backup (.rnid file) to restore your address on this device. This will replace your current identity." = "ייבא גיבוי זהות (קובץ .rnid) כדי לשחזר את כתובתך במכשיר זה. פעולה זו תחליף את הזהות הנוכחית שלך.";
+"Export Successful" = "הייצוא הצליח";
+"Share File" = "שתף קובץ";
+"Your encrypted identity backup has been saved. Keep this file and password safe." = "גיבוי הזהות המוצפן שלך נשמר. שמור את הקובץ הזה והסיסמה במקום בטוח.";
+"Enter the password used when the backup was created. This will replace your current identity." = "הזן את הסיסמה שהשתמשת בה בעת יצירת הגיבוי. פעולה זו תחליף את הזהות הנוכחית שלך.";
+
+/* Settings */
+"Profile" = "פרופיל";
+"Display Name" = "שם תצוגה";
+"Identity Details" = "פרטי זהות";
+"Backup & Restore" = "גיבוי ושחזור";
+"Announce on Network" = "הכרז ברשת";
+"Manage Interfaces" = "נהל ממשקים";
+"Mesh Features" = "תכונות רשת";
+"Auto-Announce" = "הכרזה אוטומטית";
+"Periodically broadcast your presence on the network." = "שדר את נוכחותך ברשת מעת לעת.";
+"Location Sharing" = "שיתוף מיקום";
+"Share your GPS position with nearby peers." = "שתף את מיקום ה-GPS שלך עם עמיתים קרובים.";
+"Transport Mode" = "מצב תעבורה";
+"Relay packets for other nodes on the mesh." = "העבר מנות עבור צמתים אחרים ברשת.";
+"Propagation Node" = "צומת הפצה";
+"Store and forward messages for offline peers." = "אחסן והעבר הודעות עבור עמיתים לא מקוונים.";
+"About" = "אודות";
+"Reset Identity" = "אפס זהות";
+"Version" = "גרסה";
+"Protocol" = "פרוטוקול";
+"Messaging" = "הודעות";
+"About Reticulum Messenger" = "אודות Reticulum Messenger";
+"Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers." = "הכרזה אוטומטית משדרת את נוכחותך מעת לעת. מצב תעבורה מאפשר למכשירך להעביר מנות ברשת. צומת הפצה מאחסן הודעות עבור עמיתים לא מקוונים.";
+"Resetting your identity will generate new cryptographic keys. You will no longer be reachable at your current address." = "איפוס הזהות שלך ייצור מפתחות קריפטוגרפיים חדשים. לא ניתן יהיה להגיע אליך בכתובת הנוכחית שלך.";
+"Reset Identity?" = "לאפס זהות?";
+"Reset" = "אפס";
+"This will generate a new identity. Your current address will become unreachable. This cannot be undone." = "פעולה זו תייצר זהות חדשה. הכתובת הנוכחית שלך תהפוך לבלתי ניתנת להשגה. לא ניתן לבטל פעולה זו.";
+
+/* About */
+"Reticulum Messenger" = "Reticulum Messenger";
+"Reticulum Messenger is an open-source iOS client for the Reticulum Network Stack. It uses the LXMF protocol to send and receive encrypted messages over mesh networks, completely independent of traditional internet infrastructure." = "Reticulum Messenger הוא לקוח iOS בקוד פתוח עבור שכבת הרשת Reticulum. הוא משתמש בפרוטוקול LXMF לשליחה וקבלה של הודעות מוצפנות ברשתות mesh, ללא תלות בתשתית האינטרנט המסורתית.";
+"Reticulum" = "Reticulum";
+"Reticulum is a cryptography-based networking protocol designed for unstable and unreliable networks. It provides encrypted, authenticated communication over any medium — from WiFi and cellular to LoRa radio and serial links." = "Reticulum הוא פרוטוקול רשת מבוסס קריפטוגרפיה שתוכנן עבור רשתות לא יציבות ולא אמינות. הוא מספק תקשורת מוצפנת ומאומתת על פני כל מדיום — מ-WiFi ורשתות סלולריות ועד לרדיו LoRa וקישורי סריאל.";
+"LXMF" = "LXMF";
+"LXMF (Lightweight Extensible Message Format) is a messaging protocol built on Reticulum. It supports direct delivery, store-and-forward propagation, and works across any combination of network interfaces." = "LXMF (Lightweight Extensible Message Format) הוא פרוטוקול הודעות שנבנה על Reticulum. הוא תומך במסירה ישירה, הפצה מסוג אחסון-והעברה, ועובד על פני כל שילוב של ממשקי רשת.";
+"Privacy" = "פרטיות";
+"All messages are end-to-end encrypted using modern elliptic curve cryptography (X25519 + Ed25519). Your identity exists only on your device — there are no accounts, servers, or phone numbers." = "כל ההודעות מוצפנות מקצה לקצה באמצעות קריפטוגרפיית עקומה אליפטית מודרנית (X25519 + Ed25519). הזהות שלך קיימת רק במכשיר שלך — אין חשבונות, שרתים או מספרי טלפון.";
+"Open Source" = "קוד פתוח";
+"This app is open source under the MIT license. Contributions are welcome! Visit the GitHub repository to get involved." = "אפליקציה זו היא קוד פתוח תחת רישיון MIT. תרומות מתקבלות בברכה! בקר במאגר GitHub כדי להשתתף.";
+"Reticulum Network" = "רשת Reticulum";
+"LXMF Documentation" = "תיעוד LXMF";
+"Sideband (Android)" = "Sideband (Android)";
+
+/* Mesh Graph */
+"You" = "אתה";
+"Interface" = "ממשק";
+"Peer" = "עמית";
+"Active" = "פעיל";
+
+/* Storage Errors */
+"No identity found to export" = "לא נמצאה זהות לייצוא";
+"Cannot access the selected file" = "אין גישה לקובץ שנבחר";
+"Not a valid identity backup file" = "קובץ גיבוי זהות לא חוקי";
+"Backup file version not supported" = "גרסת קובץ הגיבוי אינה נתמכת";
+"Incorrect password" = "סיסמה שגויה";
+
+/* Common */
+"OK" = "אישור";
+"Error" = "שגיאה";
+"Save" = "שמור";
