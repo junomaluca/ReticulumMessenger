@@ -25,7 +25,7 @@ struct IdentityExportView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "key.viewfinder")
                         .font(.system(size: 48))
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                     Text("Identity Backup")
                         .font(.title3.bold())
                     Text("Export your cryptographic identity as an encrypted file. Anyone with this file and the password can impersonate you on the network.")

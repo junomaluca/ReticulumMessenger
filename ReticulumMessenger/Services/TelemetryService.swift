@@ -3,6 +3,7 @@
 // Location sharing, telemetry collection, and peer position tracking.
 
 import Foundation
+import UIKit
 import CoreLocation
 import Combine
 

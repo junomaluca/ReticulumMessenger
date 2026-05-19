@@ -46,7 +46,7 @@ struct RNodeView: View {
                     } label: {
                         HStack {
                             Image(systemName: "antenna.radiowaves.left.and.right")
-                                .foregroundStyle(.accentColor)
+                                .foregroundStyle(Color.accentColor)
                                 .frame(width: 32)
                             VStack(alignment: .leading) {
                                 Text(device.name)

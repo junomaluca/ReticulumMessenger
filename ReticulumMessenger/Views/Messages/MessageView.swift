@@ -218,7 +218,7 @@ struct MessageView: View {
     private var fileAttachmentPreview: some View {
         HStack {
             Image(systemName: "doc.fill")
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
             Text(pendingAttachmentName ?? "File")
                 .font(.caption)
                 .lineLimit(1)
@@ -370,7 +370,7 @@ struct ForwardMessageSheet: View {
                     Section {
                         HStack {
                             Image(systemName: "arrowshape.turn.up.right.fill")
-                                .foregroundStyle(.accentColor)
+                                .foregroundStyle(Color.accentColor)
                             Text(message.content)
                                 .lineLimit(2)
                                 .font(.subheadline)
