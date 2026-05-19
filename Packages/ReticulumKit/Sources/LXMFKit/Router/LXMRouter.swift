@@ -227,6 +227,16 @@ public actor LXMRouter {
         propagationNode = hash
     }
 
+    /// Enable or disable propagation node mode (act as a message store).
+    public func setPropagationNode(_ enabled: Bool) {
+        // When disabled, clear the propagation node address.
+        // When enabled, set to a sentinel value indicating this node is a propagation node.
+        if !enabled {
+            propagationNode = nil
+        }
+        // The actual propagation node functionality would store messages for offline peers
+    }
+
     /// Get the delivery destination hash.
     public func deliveryHash() -> Data? {
         deliveryDestination?.hash

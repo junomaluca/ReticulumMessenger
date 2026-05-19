@@ -6,6 +6,7 @@ import SwiftUI
 struct ConversationsListView: View {
     @EnvironmentObject var appState: AppState
     @State private var showNewConversation = false
+    @State private var showQRCode = false
     @State private var searchText = ""
 
     var body: some View {
@@ -22,7 +23,13 @@ struct ConversationsListView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     StatusIndicator(status: appState.networkStatus)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showQRCode = true
+                    } label: {
+                        Image(systemName: "qrcode")
+                    }
+
                     Button {
                         showNewConversation = true
                     } label: {
@@ -32,6 +39,16 @@ struct ConversationsListView: View {
             }
             .sheet(isPresented: $showNewConversation) {
                 NewConversationView()
+            }
+            .sheet(isPresented: $showQRCode) {
+                NavigationStack {
+                    QRCodeView()
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Done") { showQRCode = false }
+                            }
+                        }
+                }
             }
             .searchable(text: $searchText, prompt: "Search conversations")
         }

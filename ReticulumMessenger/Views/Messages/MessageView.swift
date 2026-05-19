@@ -2,6 +2,7 @@
 // ReticulumMessenger — MessageView.swift
 
 import SwiftUI
+import PhotosUI
 
 struct MessageView: View {
     @EnvironmentObject var appState: AppState
@@ -10,6 +11,15 @@ struct MessageView: View {
     @State private var messageText = ""
     @State private var isSending = false
     @FocusState private var isInputFocused: Bool
+
+    // Attachment state
+    @State private var showImagePicker = false
+    @State private var showFilePicker = false
+    @State private var isRecordingAudio = false
+    @State private var selectedImage: UIImage?
+    @State private var pendingAttachmentData: Data?
+    @State private var pendingAttachmentMime: String?
+    @State private var pendingAttachmentName: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,15 +49,53 @@ struct MessageView: View {
                 }
             }
 
+            // Pending attachment preview
+            if let imageData = pendingAttachmentData,
+               let uiImage = UIImage(data: imageData) {
+                attachmentPreview(image: uiImage)
+            } else if pendingAttachmentName != nil {
+                fileAttachmentPreview
+            }
+
             Divider()
 
-            // Input bar
-            MessageInputView(
-                text: $messageText,
-                isSending: isSending,
-                isFocused: $isInputFocused,
-                onSend: sendMessage
-            )
+            // Input bar with attachment menu
+            HStack(alignment: .bottom, spacing: 8) {
+                AttachmentMenu(
+                    showImagePicker: $showImagePicker,
+                    showFilePicker: $showFilePicker,
+                    isRecordingAudio: $isRecordingAudio
+                )
+
+                TextField("Message", text: $messageText, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...6)
+                    .focused($isInputFocused)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 20))
+
+                Button(action: sendMessage) {
+                    Group {
+                        if isSending {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "arrow.up")
+                                .font(.body.bold())
+                        }
+                    }
+                    .frame(width: 20, height: 20)
+                    .padding(8)
+                    .foregroundStyle(.white)
+                    .background(canSend ? Color.accentColor : Color.gray, in: Circle())
+                }
+                .disabled(!canSend)
+                .animation(.easeInOut(duration: 0.15), value: canSend)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.bar)
         }
         .navigationTitle(conversation.resolvedName)
         .navigationBarTitleDisplayMode(.inline)
@@ -63,27 +111,153 @@ struct MessageView: View {
         .onAppear {
             markAsRead()
         }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePickerView(selectedImage: $selectedImage)
+        }
+        .sheet(isPresented: $showFilePicker) {
+            FilePickerView { url in
+                handlePickedFile(url)
+            }
+        }
+        .sheet(isPresented: $isRecordingAudio) {
+            AudioRecorderView { url in
+                handleRecordedAudio(url)
+            }
+            .presentationDetents([.medium])
+        }
+        .onChange(of: selectedImage) { _, newImage in
+            if let image = newImage, let data = image.jpegData(compressionQuality: 0.7) {
+                pendingAttachmentData = data
+                pendingAttachmentMime = "image/jpeg"
+                pendingAttachmentName = "photo.jpg"
+            }
+        }
     }
+
+    // MARK: - Computed
 
     private var currentMessages: [ChatMessage] {
         appState.conversations.first(where: { $0.id == conversation.id })?.messages ?? conversation.messages
     }
 
+    private var canSend: Bool {
+        let hasText = !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasAttachment = pendingAttachmentData != nil
+        return (hasText || hasAttachment) && !isSending
+    }
+
+    // MARK: - Subviews
+
+    private func attachmentPreview(image: UIImage) -> some View {
+        HStack {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(height: 80)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Spacer()
+
+            Button {
+                clearPendingAttachment()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+    }
+
+    private var fileAttachmentPreview: some View {
+        HStack {
+            Image(systemName: "doc.fill")
+                .foregroundStyle(.accentColor)
+            Text(pendingAttachmentName ?? "File")
+                .font(.caption)
+                .lineLimit(1)
+
+            Spacer()
+
+            Button {
+                clearPendingAttachment()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Actions
+
     private func sendMessage() {
         let content = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else { return }
 
-        messageText = ""
-        isSending = true
+        if let attachmentData = pendingAttachmentData,
+           let mime = pendingAttachmentMime {
+            // Send attachment
+            messageText = ""
+            isSending = true
+            let name = pendingAttachmentName
+            clearPendingAttachment()
 
-        Task {
-            do {
-                try await appState.sendMessage(content: content, to: conversation.peerHash)
-            } catch {
-                // Message will show as failed in the UI
+            Task {
+                do {
+                    try await appState.sendAttachment(
+                        data: attachmentData,
+                        mimeType: mime,
+                        filename: name,
+                        to: conversation.peerHash
+                    )
+                } catch {
+                    // Message will show as failed
+                }
+                isSending = false
             }
-            isSending = false
+        } else if !content.isEmpty {
+            // Send text
+            messageText = ""
+            isSending = true
+
+            Task {
+                do {
+                    try await appState.sendMessage(content: content, to: conversation.peerHash)
+                } catch {
+                    // Message will show as failed
+                }
+                isSending = false
+            }
         }
+    }
+
+    private func handlePickedFile(_ url: URL) {
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        if let data = try? Data(contentsOf: url) {
+            pendingAttachmentData = data
+            pendingAttachmentMime = mimeType(for: url)
+            pendingAttachmentName = url.lastPathComponent
+        }
+    }
+
+    private func handleRecordedAudio(_ url: URL) {
+        if let data = try? Data(contentsOf: url) {
+            pendingAttachmentData = data
+            pendingAttachmentMime = "audio/m4a"
+            pendingAttachmentName = url.lastPathComponent
+        }
+    }
+
+    private func clearPendingAttachment() {
+        pendingAttachmentData = nil
+        pendingAttachmentMime = nil
+        pendingAttachmentName = nil
+        selectedImage = nil
     }
 
     private func markAsRead() {
@@ -92,6 +266,24 @@ struct MessageView: View {
             if appState.conversations[idx].messages[i].isIncoming {
                 appState.conversations[idx].messages[i].isRead = true
             }
+        }
+        // Clear notifications for this conversation
+        NotificationService.shared.clearNotifications(for: conversation.peerHexHash)
+        let totalUnread = appState.conversations.reduce(0) { $0 + $1.unreadCount }
+        NotificationService.shared.updateBadgeCount(totalUnread)
+    }
+
+    private func mimeType(for url: URL) -> String {
+        let ext = url.pathExtension.lowercased()
+        switch ext {
+        case "jpg", "jpeg": return "image/jpeg"
+        case "png": return "image/png"
+        case "gif": return "image/gif"
+        case "pdf": return "application/pdf"
+        case "txt": return "text/plain"
+        case "m4a": return "audio/m4a"
+        case "mp3": return "audio/mpeg"
+        default: return "application/octet-stream"
         }
     }
 }
@@ -133,6 +325,14 @@ struct PeerDetailView: View {
                     LabeledContent("Last Activity") {
                         Text(lastMsg.timestamp, style: .relative)
                     }
+                }
+            }
+
+            Section {
+                Button {
+                    UIPasteboard.general.string = conversation.peerHexHash
+                } label: {
+                    Label("Copy Address", systemImage: "doc.on.doc")
                 }
             }
         }

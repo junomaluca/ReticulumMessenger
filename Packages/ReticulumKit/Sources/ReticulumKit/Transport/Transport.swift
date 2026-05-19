@@ -70,9 +70,20 @@ public actor RNSTransport {
 
     // MARK: - Interface Management
 
+    /// Whether transport mode is enabled (relay packets for other nodes).
+    private var transportEnabled = false
+
+    /// Simple announce callbacks: (hash, displayName, appData).
+    private var simpleAnnounceCallbacks: [@Sendable (Data, String?, String?) -> Void] = []
+
     /// Register a network interface.
     public func addInterface(_ interface: any RNSInterface) {
         interfaces[interface.name] = interface
+    }
+
+    /// Register a network interface (alias).
+    public func registerInterface(_ interface: any RNSInterface) {
+        addInterface(interface)
     }
 
     /// Remove a network interface.
@@ -105,6 +116,16 @@ public actor RNSTransport {
         callback: @escaping @Sendable (Data, RNSIdentity, Data?) -> Void
     ) {
         announceHandlers.append(AnnounceHandler(appName: appName, callback: callback))
+    }
+
+    /// Register a simplified announce handler (hash, displayName, appData).
+    public func onAnnounce(_ callback: @escaping @Sendable (Data, String?, String?) -> Void) {
+        simpleAnnounceCallbacks.append(callback)
+    }
+
+    /// Enable or disable transport mode (relay packets for other nodes).
+    public func setTransportEnabled(_ enabled: Bool) {
+        transportEnabled = enabled
     }
 
     // MARK: - Path Management
@@ -283,6 +304,13 @@ public actor RNSTransport {
         // Notify announce handlers
         for handler in announceHandlers {
             handler.callback(packet.destinationHash, identity, appData)
+        }
+
+        // Notify simple announce callbacks
+        let name = appData.flatMap { String(data: $0, encoding: .utf8) }
+        let appStr = appData.flatMap { String(data: $0, encoding: .utf8) }
+        for callback in simpleAnnounceCallbacks {
+            callback(packet.destinationHash, name, appStr)
         }
     }
 

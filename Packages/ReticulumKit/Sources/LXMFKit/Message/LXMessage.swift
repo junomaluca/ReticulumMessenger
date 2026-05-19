@@ -84,6 +84,11 @@ public struct LXMessage: Identifiable, Sendable {
     /// File attachments.
     public var attachments: [LXMFAttachment]
 
+    /// Add an attachment to this message.
+    public mutating func addAttachment(_ attachment: LXMFAttachment) {
+        attachments.append(attachment)
+    }
+
     // MARK: - Initialization
 
     /// Create a new outgoing message.
@@ -290,6 +295,12 @@ public struct LXMFAttachment: Sendable, Identifiable {
 
     public init(name: String, data: Data, mimeType: String = "application/octet-stream") {
         self.name = name
+        self.data = data
+        self.mimeType = mimeType
+    }
+
+    public init(data: Data, mimeType: String, filename: String? = nil) {
+        self.name = filename ?? "attachment"
         self.data = data
         self.mimeType = mimeType
     }

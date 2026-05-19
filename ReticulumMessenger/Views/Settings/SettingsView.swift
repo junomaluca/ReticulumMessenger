@@ -38,6 +38,12 @@ struct SettingsView: View {
                         IdentityView()
                     }
 
+                    NavigationLink {
+                        QRCodeView()
+                    } label: {
+                        Label("QR Code", systemImage: "qrcode")
+                    }
+
                     Button("Announce on Network") {
                         Task {
                             try? await appState.messengerService?.announce(
@@ -52,11 +58,58 @@ struct SettingsView: View {
                     NavigationLink("Manage Interfaces") {
                         InterfacesView()
                     }
+
+                    NavigationLink {
+                        RNodeView()
+                    } label: {
+                        Label("RNode Device", systemImage: "antenna.radiowaves.left.and.right")
+                    }
+
+                    NavigationLink {
+                        AnnounceStreamView()
+                    } label: {
+                        Label("Announce Stream", systemImage: "megaphone")
+                    }
+                }
+
+                // Mesh Features
+                Section("Mesh Features") {
+                    Toggle("Auto-Announce", isOn: Binding(
+                        get: { appState.autoAnnounceEnabled },
+                        set: { newValue in
+                            if newValue {
+                                appState.startAutoAnnounce()
+                            } else {
+                                appState.stopAutoAnnounce()
+                            }
+                        }
+                    ))
+
+                    Toggle("Location Sharing", isOn: Binding(
+                        get: { appState.locationSharingEnabled },
+                        set: { appState.setLocationSharing($0) }
+                    ))
+
+                    Toggle("Transport Mode", isOn: Binding(
+                        get: { appState.transportModeEnabled },
+                        set: { newValue in
+                            Task { await appState.setTransportMode(newValue) }
+                        }
+                    ))
+
+                    Toggle("Propagation Node", isOn: Binding(
+                        get: { appState.propagationNodeEnabled },
+                        set: { newValue in
+                            Task { await appState.setPropagationNode(newValue) }
+                        }
+                    ))
+                } footer: {
+                    Text("Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers.")
                 }
 
                 // About
                 Section("About") {
-                    LabeledContent("Version", value: "0.1.0")
+                    LabeledContent("Version", value: "0.2.0")
                     LabeledContent("Protocol", value: "Reticulum")
                     LabeledContent("Messaging", value: "LXMF")
 

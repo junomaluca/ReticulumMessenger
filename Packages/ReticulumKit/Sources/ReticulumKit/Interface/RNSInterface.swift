@@ -15,7 +15,7 @@ public protocol RNSInterfaceDelegate: AnyObject, Sendable {
 }
 
 /// Status of a network interface.
-public enum RNSInterfaceStatus: Sendable {
+public enum RNSInterfaceStatus: Sendable, Equatable {
     case disconnected
     case connecting
     case connected

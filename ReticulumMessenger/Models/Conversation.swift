@@ -4,7 +4,15 @@
 import Foundation
 
 /// A conversation with a specific peer, containing message history.
-struct Conversation: Identifiable, Codable {
+struct Conversation: Identifiable, Codable, Hashable {
+    static func == (lhs: Conversation, rhs: Conversation) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
     let id: UUID
     let peerHash: Data
     var displayName: String?

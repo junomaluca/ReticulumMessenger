@@ -21,15 +21,31 @@ final class AppState: ObservableObject {
     @Published var localIdentityHash: String = ""
     @Published var deliveryHash: String = ""
 
+    // RNode
+    @Published var connectedRNode: RNodeInfo?
+    @Published var isRNodeScanning = false
+
+    // Announce stream
+    @Published var announceStream: [AnnounceEntry] = []
+
+    // Settings
+    @Published var autoAnnounceEnabled = false
+    @Published var transportModeEnabled = false
+    @Published var propagationNodeEnabled = false
+    @Published var locationSharingEnabled = false
+
     // MARK: - Services
 
     private(set) var messengerService: MessengerService?
     private(set) var storageService: StorageService?
+    private(set) var telemetryService: TelemetryService?
 
     // MARK: - Protocol Layer
 
     private var reticulum: Reticulum?
     private var lxmRouter: LXMRouter?
+    private var rnodeInterface: RNodeInterface?
+    private var autoAnnounceTimer: Timer?
 
     // MARK: - Initialization
 
@@ -40,9 +56,16 @@ final class AppState: ObservableObject {
         let storage = StorageService()
         self.storageService = storage
 
+        // Initialize telemetry
+        let telemetry = TelemetryService()
+        self.telemetryService = telemetry
+
         // Load saved conversations and settings
         conversations = storage.loadConversations()
         let savedInterfaces = storage.loadInterfaceConfigs()
+
+        // Load user preferences
+        loadUserPreferences()
 
         // Initialize Reticulum stack
         let config = ReticulumConfig(
@@ -62,6 +85,10 @@ final class AppState: ObservableObject {
             storage: storage
         )
         self.messengerService = messenger
+
+        // Request notification permission
+        NotificationService.shared.registerCategories()
+        _ = await NotificationService.shared.requestPermission()
 
         // Start the stack
         do {
@@ -83,11 +110,29 @@ final class AppState: ObservableObject {
                 }
             }
 
+            // Register announce handler
+            await rns.transport.onAnnounce { [weak self] hash, name, appData in
+                Task { @MainActor [weak self] in
+                    self?.handleAnnounce(hash: hash, name: name, appData: appData)
+                }
+            }
+
             networkStatus = .connected
             isInitialized = true
 
             // Start periodic UI updates
             startPeriodicUpdates()
+
+            // Start telemetry if enabled
+            if locationSharingEnabled {
+                telemetry.startLocationUpdates()
+            }
+            telemetry.startPeriodicTelemetry()
+
+            // Start auto-announce if enabled
+            if autoAnnounceEnabled {
+                startAutoAnnounce()
+            }
 
         } catch {
             networkStatus = .error(error.localizedDescription)
@@ -109,7 +154,26 @@ final class AppState: ObservableObject {
         // Add to conversation immediately (optimistic)
         addMessageToConversation(message)
 
+        // Haptic feedback
+        NotificationService.shared.playMessageSentHaptic()
+
         // Send via LXMF router
+        _ = try await router.send(message)
+    }
+
+    func sendAttachment(data: Data, mimeType: String, filename: String?, to destinationHash: Data) async throws {
+        guard let router = lxmRouter, let rns = reticulum else { return }
+
+        let identity = try await rns.getLocalIdentity()
+        var message = LXMessage(
+            sourceHash: identity.hash,
+            destinationHash: destinationHash,
+            content: filename ?? "Attachment"
+        )
+        message.addAttachment(LXMFAttachment(data: data, mimeType: mimeType, filename: filename))
+
+        addMessageToConversation(message)
+        NotificationService.shared.playMessageSentHaptic()
         _ = try await router.send(message)
     }
 
@@ -134,10 +198,182 @@ final class AppState: ObservableObject {
         await refreshInterfaces()
     }
 
+    func addUDPInterface(name: String, host: String?, port: UInt16, listenPort: UInt16) async throws {
+        let udp = UDPInterface(name: name, host: host, port: port, listenPort: listenPort)
+        try await udp.connect()
+        if let rns = reticulum {
+            await rns.transport.registerInterface(udp)
+        }
+        await refreshInterfaces()
+    }
+
+    // MARK: - RNode Management
+
+    func startRNodeScan(onDiscover: @escaping (RNodeInterface.DiscoveredRNode) -> Void) {
+        let rnode = RNodeInterface(name: "RNode")
+        self.rnodeInterface = rnode
+        rnode.startScanning()
+        isRNodeScanning = true
+
+        // Poll for discovered devices
+        Task {
+            while isRNodeScanning {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                let devices = await rnode.discoveredDevices
+                for device in devices {
+                    onDiscover(device)
+                }
+            }
+        }
+    }
+
+    func stopRNodeScan() {
+        rnodeInterface?.stopScanning()
+        isRNodeScanning = false
+    }
+
+    func connectRNode(deviceId: UUID, name: String) async throws {
+        guard let rnode = rnodeInterface else { return }
+        try await rnode.connect(deviceId: deviceId)
+
+        connectedRNode = RNodeInfo(
+            name: name,
+            deviceId: deviceId,
+            config: .balanced,
+            radioOnline: true
+        )
+
+        // Register with transport
+        if let rns = reticulum {
+            await rns.transport.registerInterface(rnode)
+        }
+
+        NotificationService.shared.playConnectionHaptic()
+        await refreshInterfaces()
+    }
+
+    func disconnectRNode() async {
+        await rnodeInterface?.disconnect()
+        connectedRNode = nil
+        await refreshInterfaces()
+    }
+
+    func configureRNode(_ config: RNodeConfig) async {
+        await rnodeInterface?.configure(config)
+        connectedRNode?.config = config
+    }
+
+    // MARK: - Auto-Announce
+
+    func startAutoAnnounce(interval: TimeInterval = 300) {
+        stopAutoAnnounce()
+        autoAnnounceEnabled = true
+        saveUserPreferences()
+
+        // Announce immediately
+        Task {
+            let name = storageService?.loadDisplayName()
+            try? await messengerService?.announce(displayName: name)
+        }
+
+        autoAnnounceTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                let name = self.storageService?.loadDisplayName()
+                try? await self.messengerService?.announce(displayName: name)
+            }
+        }
+    }
+
+    func stopAutoAnnounce() {
+        autoAnnounceTimer?.invalidate()
+        autoAnnounceTimer = nil
+        autoAnnounceEnabled = false
+        saveUserPreferences()
+    }
+
+    // MARK: - Transport Mode
+
+    func setTransportMode(_ enabled: Bool) async {
+        transportModeEnabled = enabled
+        if let rns = reticulum {
+            await rns.transport.setTransportEnabled(enabled)
+        }
+        saveUserPreferences()
+    }
+
+    // MARK: - Propagation Node
+
+    func setPropagationNode(_ enabled: Bool) async {
+        propagationNodeEnabled = enabled
+        if let router = lxmRouter {
+            await router.setPropagationNode(enabled)
+        }
+        saveUserPreferences()
+    }
+
+    // MARK: - Location Sharing
+
+    func setLocationSharing(_ enabled: Bool) {
+        locationSharingEnabled = enabled
+        if enabled {
+            telemetryService?.startLocationUpdates()
+        } else {
+            telemetryService?.stopLocationUpdates()
+        }
+        saveUserPreferences()
+    }
+
     // MARK: - Private
 
     private func handleReceivedMessage(_ message: LXMessage) {
         addMessageToConversation(message)
+
+        // Notification
+        let senderName = message.sourceName ?? String(message.sourceHash.map { String(format: "%02x", $0) }.joined().prefix(8))
+        NotificationService.shared.showMessageNotification(
+            from: senderName,
+            content: message.content,
+            conversationHash: message.sourceHash.map { String(format: "%02x", $0) }.joined()
+        )
+
+        // Haptic
+        NotificationService.shared.playMessageReceivedHaptic()
+
+        // Update badge
+        let totalUnread = conversations.reduce(0) { $0 + $1.unreadCount }
+        NotificationService.shared.updateBadgeCount(totalUnread)
+    }
+
+    private func handleAnnounce(hash: Data, name: String?, appData: String?) {
+        let hexHash = hash.map { String(format: "%02x", $0) }.joined()
+
+        let type: AnnounceEntry.AnnounceType
+        if appData?.contains("lxmf") == true {
+            type = .lxmf
+        } else if appData?.contains("transport") == true {
+            type = .transport
+        } else if appData?.contains("node") == true {
+            type = .node
+        } else {
+            type = .unknown
+        }
+
+        let entry = AnnounceEntry(
+            hash: hexHash,
+            displayName: name,
+            type: type,
+            timestamp: Date(),
+            appData: appData,
+            destinationHash: hash
+        )
+
+        announceStream.insert(entry, at: 0)
+
+        // Keep only last 200 announces
+        if announceStream.count > 200 {
+            announceStream = Array(announceStream.prefix(200))
+        }
     }
 
     private func addMessageToConversation(_ message: LXMessage) {
@@ -187,6 +423,16 @@ final class AppState: ObservableObject {
                         networkStatus = .connecting
                     }
                 }
+
+                // Update RNode stats
+                if let rnode = rnodeInterface, connectedRNode != nil {
+                    let stats = await rnode.radioStats
+                    connectedRNode?.lastRSSI = stats.rssi
+                    connectedRNode?.lastSNR = stats.snr
+                    connectedRNode?.batteryLevel = stats.battery
+                    connectedRNode?.radioOnline = stats.online
+                    connectedRNode?.firmwareVersion = stats.firmwareVersion
+                }
             }
         }
     }
@@ -194,6 +440,24 @@ final class AppState: ObservableObject {
     private func defaultInterfaces() -> [RNSInterfaceConfig] {
         // Default: no interfaces configured, user must add one
         []
+    }
+
+    // MARK: - User Preferences
+
+    private func loadUserPreferences() {
+        let defaults = UserDefaults.standard
+        autoAnnounceEnabled = defaults.bool(forKey: "autoAnnounce")
+        transportModeEnabled = defaults.bool(forKey: "transportMode")
+        propagationNodeEnabled = defaults.bool(forKey: "propagationNode")
+        locationSharingEnabled = defaults.bool(forKey: "locationSharing")
+    }
+
+    private func saveUserPreferences() {
+        let defaults = UserDefaults.standard
+        defaults.set(autoAnnounceEnabled, forKey: "autoAnnounce")
+        defaults.set(transportModeEnabled, forKey: "transportMode")
+        defaults.set(propagationNodeEnabled, forKey: "propagationNode")
+        defaults.set(locationSharingEnabled, forKey: "locationSharing")
     }
 }
 

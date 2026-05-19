@@ -75,6 +75,22 @@ struct NetworkStatusView: View {
                     }
                 }
 
+                // Quick Links
+                Section("Tools") {
+                    NavigationLink {
+                        AnnounceStreamView()
+                    } label: {
+                        Label("Announce Stream", systemImage: "megaphone")
+                            .badge(appState.announceStream.count)
+                    }
+
+                    NavigationLink {
+                        RNodeView()
+                    } label: {
+                        Label("RNode Device", systemImage: "antenna.radiowaves.left.and.right")
+                    }
+                }
+
                 // Known Peers
                 Section("Discovered Peers") {
                     if appState.knownPeers.isEmpty {

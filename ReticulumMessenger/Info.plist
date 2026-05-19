@@ -22,8 +22,18 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Reticulum Messenger uses Bluetooth to communicate with RNode LoRa radio devices for mesh networking.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Reticulum Messenger uses Bluetooth to communicate with RNode LoRa radio devices.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Reticulum Messenger uses the camera to scan QR codes for identity sharing and paper messages.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Reticulum Messenger uses the local network to discover and communicate with nearby mesh nodes.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Reticulum Messenger shares your location with mesh network peers on the live map when enabled.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Reticulum Messenger uses the microphone to record voice messages.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -42,6 +52,7 @@
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>bluetooth-central</string>
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
