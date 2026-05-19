@@ -15,7 +15,7 @@ struct IdentityView: View {
                     Spacer()
                     VStack(spacing: 16) {
                         AvatarView(
-                            hash: hexToData(appState.localIdentityHash) ?? Data(),
+                            hash: Data(hexString: appState.localIdentityHash) ?? Data(),
                             size: 96
                         )
                         Text("Your Identity")
@@ -80,16 +80,4 @@ struct IdentityView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func hexToData(_ hex: String) -> Data? {
-        var data = Data()
-        var index = hex.startIndex
-        while index < hex.endIndex {
-            let nextIndex = hex.index(index, offsetBy: 2, limitedBy: hex.endIndex) ?? hex.endIndex
-            guard nextIndex != index else { return nil }
-            guard let byte = UInt8(hex[index..<nextIndex], radix: 16) else { return nil }
-            data.append(byte)
-            index = nextIndex
-        }
-        return data
-    }
 }

@@ -82,7 +82,7 @@ struct NewConversationView: View {
 
     private func createConversation() {
         let cleaned = destinationHash.replacingOccurrences(of: " ", with: "").lowercased()
-        guard let hashData = hexToData(cleaned) else {
+        guard let hashData = Data(hexString: cleaned) else {
             errorMessage = "Invalid hex string"
             showError = true
             return
@@ -93,16 +93,4 @@ struct NewConversationView: View {
         dismiss()
     }
 
-    private func hexToData(_ hex: String) -> Data? {
-        var data = Data()
-        var index = hex.startIndex
-        while index < hex.endIndex {
-            let nextIndex = hex.index(index, offsetBy: 2, limitedBy: hex.endIndex) ?? hex.endIndex
-            guard nextIndex != index else { return nil }
-            guard let byte = UInt8(hex[index..<nextIndex], radix: 16) else { return nil }
-            data.append(byte)
-            index = nextIndex
-        }
-        return data
-    }
 }

@@ -7,6 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @State private var displayName: String = ""
     @State private var showResetConfirm = false
+    @State private var showAnnounceConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -16,7 +17,7 @@ struct SettingsView: View {
                     HStack {
                         if !appState.localIdentityHash.isEmpty {
                             AvatarView(
-                                hash: hexToData(appState.localIdentityHash) ?? Data(),
+                                hash: Data(hexString: appState.localIdentityHash) ?? Data(),
                                 size: 56
                             )
                         }
@@ -52,9 +53,14 @@ struct SettingsView: View {
 
                     Button("Announce on Network") {
                         Task {
-                            try? await appState.messengerService?.announce(
-                                displayName: displayName.isEmpty ? nil : displayName
-                            )
+                            do {
+                                try await appState.messengerService?.announce(
+                                    displayName: displayName.isEmpty ? nil : displayName
+                                )
+                                showAnnounceConfirm = true
+                            } catch {
+                                // Announce failed silently — network may be offline
+                            }
                         }
                     }
                 }
@@ -115,7 +121,7 @@ struct SettingsView: View {
 
                 // About
                 Section("About") {
-                    LabeledContent("Version", value: "0.3.0")
+                    LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–")
                     LabeledContent("Protocol", value: "Reticulum")
                     LabeledContent("Messaging", value: "LXMF")
 
@@ -143,11 +149,16 @@ struct SettingsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Reset", role: .destructive) {
-                    // Would reset identity
+                    Task { await appState.resetIdentity() }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This will generate a new identity. Your current address will become unreachable. This cannot be undone.")
+            }
+            .alert("Announced", isPresented: $showAnnounceConfirm) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your presence has been announced on the network.")
             }
         }
     }
@@ -156,16 +167,4 @@ struct SettingsView: View {
         appState.storageService?.saveDisplayName(displayName.isEmpty ? nil : displayName)
     }
 
-    private func hexToData(_ hex: String) -> Data? {
-        var data = Data()
-        var index = hex.startIndex
-        while index < hex.endIndex {
-            let nextIndex = hex.index(index, offsetBy: 2, limitedBy: hex.endIndex) ?? hex.endIndex
-            guard nextIndex != index else { return nil }
-            guard let byte = UInt8(hex[index..<nextIndex], radix: 16) else { return nil }
-            data.append(byte)
-            index = nextIndex
-        }
-        return data
-    }
 }

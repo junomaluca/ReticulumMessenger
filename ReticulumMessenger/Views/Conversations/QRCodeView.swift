@@ -3,10 +3,12 @@
 // QR code generation and scanning for identity sharing and paper messages.
 
 import SwiftUI
+import AVFoundation
 import CoreImage.CIFilterBuiltins
 
 struct QRCodeView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @State private var selectedTab = 0
 
     var body: some View {
@@ -41,7 +43,7 @@ struct QRCodeView: View {
                     .scaledToFit()
                     .frame(width: 250, height: 250)
                     .background(.white)
-                    .cornerRadius(12)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                     .shadow(radius: 4)
             }
 
@@ -107,8 +109,9 @@ struct QRCodeView: View {
         // Treat as destination hash
         let cleaned = code.replacingOccurrences(of: " ", with: "").lowercased()
         if cleaned.count == 32, cleaned.allSatisfy({ $0.isHexDigit }) {
-            if let hashData = hexToData(cleaned) {
+            if let hashData = Data(hexString: cleaned) {
                 appState.createConversation(with: hashData, name: nil)
+                dismiss()
             }
         }
     }
@@ -120,22 +123,12 @@ struct QRCodeView: View {
         let parts = path.split(separator: "/", maxSplits: 1)
         guard let destHex = parts.first, destHex.count == 32 else { return }
 
-        if let hashData = hexToData(String(destHex)) {
+        if let hashData = Data(hexString: String(destHex)) {
             appState.createConversation(with: hashData, name: nil)
+            dismiss()
         }
     }
 
-    private func hexToData(_ hex: String) -> Data? {
-        var data = Data()
-        var index = hex.startIndex
-        while index < hex.endIndex {
-            let nextIndex = hex.index(index, offsetBy: 2, limitedBy: hex.endIndex) ?? hex.endIndex
-            guard nextIndex != index, let byte = UInt8(hex[index..<nextIndex], radix: 16) else { return nil }
-            data.append(byte)
-            index = nextIndex
-        }
-        return data
-    }
 }
 
 // MARK: - QR Scanner
@@ -151,8 +144,6 @@ struct QRScannerView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: QRScannerViewController, context: Context) {}
 }
-
-import AVFoundation
 
 class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     var onScan: ((String) -> Void)?

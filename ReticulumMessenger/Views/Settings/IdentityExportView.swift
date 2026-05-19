@@ -16,6 +16,7 @@ struct IdentityExportView: View {
     @State private var importURL: URL?
     @State private var importPassword = ""
     @State private var errorMessage: String?
+    @State private var showImportSuccess = false
     @State private var exportedFileURL: URL?
 
     var body: some View {
@@ -109,6 +110,11 @@ struct IdentityExportView: View {
                 showImportPassword = true
             }
         }
+        .alert("Import Successful", isPresented: $showImportSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Identity imported successfully. Please restart the app for changes to take effect.")
+        }
         .alert("Enter Backup Password", isPresented: $showImportPassword) {
             SecureField("Password", text: $importPassword)
             Button("Import", role: .destructive) { importIdentity() }
@@ -151,7 +157,7 @@ struct IdentityExportView: View {
             try storage.importIdentity(from: url, password: importPassword)
             importPassword = ""
             importURL = nil
-            errorMessage = "Identity imported successfully. Please restart the app for changes to take effect."
+            showImportSuccess = true
         } catch {
             errorMessage = "Import failed: \(error.localizedDescription)"
         }

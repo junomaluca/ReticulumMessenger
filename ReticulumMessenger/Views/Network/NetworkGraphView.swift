@@ -17,11 +17,16 @@ struct NetworkGraphView: View {
             Color(.systemBackground).ignoresSafeArea()
 
             GeometryReader { geo in
-                Canvas { context, size in
-                    drawGrid(context: context, size: size)
-                    drawEdges(context: context, size: size)
-                    drawNodes(context: context, size: size)
-                    drawPacketParticles(context: context, size: size)
+                TimelineView(.animation) { timeline in
+                    let elapsed = timeline.date.timeIntervalSinceReferenceDate
+                    let phase = CGFloat(elapsed.truncatingRemainder(dividingBy: 3.0) / 3.0)
+                    Canvas { context, size in
+                        animationPhase = phase
+                        drawGrid(context: context, size: size)
+                        drawEdges(context: context, size: size)
+                        drawNodes(context: context, size: size)
+                        drawPacketParticles(context: context, size: size)
+                    }
                 }
                 .onAppear {
                     canvasSize = geo.size
@@ -53,11 +58,6 @@ struct NetworkGraphView: View {
         }
         .navigationTitle("Mesh Topology")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                animationPhase = 1.0
-            }
-        }
     }
 
     // MARK: - Drawing
@@ -188,8 +188,9 @@ struct NetworkGraphView: View {
         let peerAngles = distributeAngles(count: appState.knownPeers.count, startAngle: 0)
         for (i, peer) in appState.knownPeers.enumerated() {
             let angle = peerAngles[i]
-            // Deterministic offset based on hash to avoid jitter on rebuild
-            let hashOffset = CGFloat(peer.hexHash.hashValue & 0xFF) / 255.0 * 0.06 - 0.03
+            // Deterministic offset using first bytes of the hex hash (stable across launches)
+            let stableValue = peer.hexHash.prefix(4).unicodeScalars.reduce(0) { acc, c in acc &* 31 &+ Int(c.value) }
+            let hashOffset = CGFloat(abs(stableValue) % 256) / 255.0 * 0.06 - 0.03
             let radius: CGFloat = 0.3 + hashOffset
             let node = GraphNode(
                 id: "peer-\(peer.hexHash)",

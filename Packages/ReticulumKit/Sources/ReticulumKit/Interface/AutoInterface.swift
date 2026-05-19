@@ -72,9 +72,6 @@ public final class AutoInterface: @unchecked Sendable {
     /// Known peer endpoints discovered via multicast.
     private var discoveredPeers: Set<String> = []
 
-    /// Connections to discovered peers for data exchange.
-    private var peerConnections: [String: NWConnection] = [:]
-
     // MARK: - Initialization
 
     public init(
@@ -195,10 +192,6 @@ extension AutoInterface: RNSInterface {
         connectionGroup = nil
         dataListener?.cancel()
         dataListener = nil
-        for (_, conn) in peerConnections {
-            conn.cancel()
-        }
-        peerConnections.removeAll()
         discoveredPeers.removeAll()
         status = .disconnected
     }

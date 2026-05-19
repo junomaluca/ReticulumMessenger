@@ -70,11 +70,9 @@ public actor RNSTransport {
     /// How often the watchdog checks interface health (seconds).
     private let watchdogInterval: TimeInterval = 5.0
 
-    /// Callbacks invoked when the watchdog detects all interfaces are offline.
-    private var allOfflineCallbacks: [@Sendable () -> Void] = []
 
-    /// Path response continuations waiting for paths.
-    private var pathResponseWaiters: [Data: [CheckedContinuation<Bool, Never>]] = [:]
+    /// Path response continuations waiting for paths, keyed by destination hash then waiter UUID.
+    private var pathResponseWaiters: [Data: [UUID: CheckedContinuation<Bool, Never>]] = [:]
 
     // MARK: - Initialization
 
@@ -334,10 +332,9 @@ public actor RNSTransport {
         }
 
         // Notify simple announce callbacks
-        let name = appData.flatMap { String(data: $0, encoding: .utf8) }
-        let appStr = appData.flatMap { String(data: $0, encoding: .utf8) }
+        let displayName = appData.flatMap { String(data: $0, encoding: .utf8) }
         for callback in simpleAnnounceCallbacks {
-            callback(packet.destinationHash, name, appStr)
+            callback(packet.destinationHash, displayName, displayName)
         }
     }
 
@@ -397,11 +394,6 @@ public actor RNSTransport {
         watchdogTask = nil
     }
 
-    /// Register a callback for when all interfaces go offline.
-    public func onAllOffline(_ callback: @escaping @Sendable () -> Void) {
-        allOfflineCallbacks.append(callback)
-    }
-
     /// Force-reconnect all TCP interfaces. Called on app resume because
     /// iOS leaves sockets half-dead after suspend. From runcore: always
     /// kick TCP connections on resume regardless of apparent state.
@@ -415,20 +407,9 @@ public actor RNSTransport {
 
     /// Single watchdog iteration — check each interface for staleness.
     private func runWatchdogCheck() async {
-        var anyOnline = false
         for (_, interface) in interfaces {
-            if interface.isOnline {
-                anyOnline = true
-            }
-            // Detect stale TCP connections
             if let tcp = interface as? TCPClientInterface, tcp.isStale {
                 try? await tcp.forceReconnect()
-            }
-        }
-
-        if !anyOnline && !interfaces.isEmpty {
-            for callback in allOfflineCallbacks {
-                callback()
             }
         }
     }
@@ -441,39 +422,41 @@ public actor RNSTransport {
         // Check if already known
         if hasPath(to: destinationHash) { return true }
 
+        let waiterID = UUID()
+
         // Wait with timeout
         return await withCheckedContinuation { continuation in
             if pathResponseWaiters[destinationHash] == nil {
-                pathResponseWaiters[destinationHash] = []
+                pathResponseWaiters[destinationHash] = [:]
             }
-            pathResponseWaiters[destinationHash]?.append(continuation)
+            pathResponseWaiters[destinationHash]?[waiterID] = continuation
 
-            // Timeout task
+            // Timeout task — only cancels this specific waiter
             Task {
                 try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                await self.cancelPathWaiter(for: destinationHash, continuation: continuation)
+                await self.cancelPathWaiter(for: destinationHash, waiterID: waiterID)
             }
         }
     }
 
-    /// Cancel a path waiter that timed out.
-    private func cancelPathWaiter(for hash: Data, continuation: CheckedContinuation<Bool, Never>) {
-        if var waiters = pathResponseWaiters[hash] {
-            // Resume any remaining waiters with false (timeout)
-            // We can't directly compare continuations, so resume all remaining
-            for waiter in waiters {
-                waiter.resume(returning: hasPath(to: hash))
-            }
+    /// Cancel a single path waiter that timed out (by its UUID).
+    private func cancelPathWaiter(for hash: Data, waiterID: UUID) {
+        guard let continuation = pathResponseWaiters[hash]?.removeValue(forKey: waiterID) else {
+            return // Already resumed by notifyPathWaiters
+        }
+        continuation.resume(returning: hasPath(to: hash))
+
+        // Clean up empty dictionaries
+        if pathResponseWaiters[hash]?.isEmpty == true {
             pathResponseWaiters.removeValue(forKey: hash)
         }
     }
 
     /// Notify path waiters when a new path is registered.
     private func notifyPathWaiters(for destinationHash: Data) {
-        if let waiters = pathResponseWaiters.removeValue(forKey: destinationHash) {
-            for waiter in waiters {
-                waiter.resume(returning: true)
-            }
+        guard let waiters = pathResponseWaiters.removeValue(forKey: destinationHash) else { return }
+        for (_, continuation) in waiters {
+            continuation.resume(returning: true)
         }
     }
 
@@ -488,9 +471,13 @@ public actor RNSTransport {
         }
     }
 
-    /// Clean expired paths from the path table.
+    /// Clean expired paths from the path table and stale pending requests.
     public func cleanExpiredPaths() {
         pathTable = pathTable.filter { !$0.value.isExpired }
+
+        // Clean pending path requests older than the blacklist window
+        let cutoff = Date().addingTimeInterval(-RNS.pathRequestBlacklist)
+        pendingPathRequests = pendingPathRequests.filter { $0.value > cutoff }
     }
 
     /// Get transport statistics.

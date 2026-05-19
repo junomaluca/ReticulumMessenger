@@ -160,7 +160,6 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
         )
 
         let params = NWParameters.tcp
-        params.requiredInterfaceType = .other  // Allow any network
 
         let conn = NWConnection(to: endpoint, using: params)
         self.connection = conn

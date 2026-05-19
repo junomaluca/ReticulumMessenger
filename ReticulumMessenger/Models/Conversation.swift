@@ -14,12 +14,12 @@ enum DisappearingDuration: String, Codable, CaseIterable {
 
     var label: String {
         switch self {
-        case .off: return "Off"
-        case .thirtySeconds: return "30 seconds"
-        case .fiveMinutes: return "5 minutes"
-        case .oneHour: return "1 hour"
-        case .twentyFourHours: return "24 hours"
-        case .oneWeek: return "1 week"
+        case .off: return String(localized: "Off")
+        case .thirtySeconds: return String(localized: "30 seconds")
+        case .fiveMinutes: return String(localized: "5 minutes")
+        case .oneHour: return String(localized: "1 hour")
+        case .twentyFourHours: return String(localized: "24 hours")
+        case .oneWeek: return String(localized: "1 week")
         }
     }
 
@@ -108,7 +108,7 @@ struct Conversation: Identifiable, Codable, Hashable {
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
         messages = try container.decode([ChatMessage].self, forKey: .messages)
         lastActivity = try container.decode(Date.self, forKey: .lastActivity)
-        isArchived = try container.decode(Bool.self, forKey: .isArchived)
+        isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
         isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
         disappearingDuration = try container.decodeIfPresent(DisappearingDuration.self, forKey: .disappearingDuration) ?? .off
     }

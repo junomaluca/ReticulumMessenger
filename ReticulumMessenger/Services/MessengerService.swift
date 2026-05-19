@@ -15,9 +15,6 @@ actor MessengerService {
     private let router: LXMRouter
     private let storage: StorageService
 
-    /// Cached delivery destination to avoid re-creating and overwriting callbacks.
-    private var cachedDeliveryDestination: RNSDestination?
-
     // MARK: - Initialization
 
     init(reticulum: Reticulum, router: LXMRouter, storage: StorageService) {
@@ -26,23 +23,17 @@ actor MessengerService {
         self.storage = storage
     }
 
-    // MARK: - Sending
+    // MARK: - Errors
 
-    /// Send a text message to a destination.
-    func sendMessage(content: String, to destinationHash: Data) async throws -> LXMessage {
-        let identity = try await reticulum.getLocalIdentity()
+    enum MessengerError: Error, LocalizedError {
+        case noDeliveryDestination
 
-        var message = LXMessage(
-            sourceHash: identity.hash,
-            destinationHash: destinationHash,
-            content: content
-        )
-
-        // Set source name if available
-        message.sourceName = storage.loadDisplayName()
-
-        _ = try await router.send(message)
-        return message
+        var errorDescription: String? {
+            switch self {
+            case .noDeliveryDestination:
+                return "LXMF router has no delivery destination — call start() first"
+            }
+        }
     }
 
     /// Get all known peers from the LXMF router.
@@ -56,21 +47,11 @@ actor MessengerService {
     }
 
     /// Announce presence on the network.
-    /// Reuses the existing delivery destination to avoid overwriting router callbacks.
+    /// Uses the router's existing delivery destination to avoid overwriting its callbacks.
     func announce(displayName: String?) async throws {
-        let destination: RNSDestination
-
-        if let cached = cachedDeliveryDestination {
-            destination = cached
-        } else {
-            // Get the delivery destination from the router instead of creating a new one
-            destination = try await reticulum.createDestination(
-                appName: LXMRouter.appName,
-                aspects: [LXMRouter.deliveryAspect]
-            )
-            cachedDeliveryDestination = destination
+        guard let destination = await router.getDeliveryDestination() else {
+            throw MessengerError.noDeliveryDestination
         }
-
         let appData = displayName.map { Data($0.utf8) }
         try await reticulum.announce(destination: destination, appData: appData)
     }

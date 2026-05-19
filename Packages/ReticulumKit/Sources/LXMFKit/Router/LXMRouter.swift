@@ -317,6 +317,11 @@ public actor LXMRouter {
         deliveryDestination?.hash
     }
 
+    /// Get the delivery destination (for announces without overwriting callbacks).
+    public func getDeliveryDestination() -> RNSDestination? {
+        deliveryDestination
+    }
+
     // MARK: - Handlers
 
     /// Register a handler for received messages.

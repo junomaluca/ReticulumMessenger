@@ -126,6 +126,13 @@ final class AppState: ObservableObject {
                 }
             }
 
+            // Register delivery update handler to track sent/failed states
+            await router.onDeliveryUpdate { [weak self] update in
+                Task { @MainActor [weak self] in
+                    self?.handleDeliveryUpdate(update)
+                }
+            }
+
             // Register announce handler
             await rns.transport.onAnnounce { [weak self] hash, name, appData in
                 Task { @MainActor [weak self] in
@@ -379,6 +386,34 @@ final class AppState: ObservableObject {
         storageService?.saveConversations(conversations)
     }
 
+    // MARK: - Identity Management
+
+    /// Reset the local identity: regenerate keypair, clear stored identity, restart stack.
+    func resetIdentity() async {
+        // Stop the running stack
+        if let rns = reticulum {
+            await rns.stop()
+        }
+
+        // Delete stored identity file
+        if let storage = storageService {
+            storage.deleteIdentity()
+        }
+
+        // Reset published state
+        localIdentityHash = ""
+        deliveryHash = ""
+        conversations = []
+        knownPeers = []
+        interfaces = []
+        announceStream = []
+        networkStatus = .disconnected
+        isInitialized = false
+
+        // Reinitialize the stack with a fresh identity
+        await initialize()
+    }
+
     // MARK: - Refresh
 
     func refreshNetworkStatus() async {
@@ -446,6 +481,25 @@ final class AppState: ObservableObject {
         // Keep only last 200 announces
         if announceStream.count > 200 {
             announceStream = Array(announceStream.prefix(200))
+        }
+    }
+
+    private func handleDeliveryUpdate(_ update: LXMRouter.DeliveryUpdate) {
+        let targetState: ChatMessage.MessageState
+        switch update.state {
+        case .sent: targetState = .sent
+        case .delivered: targetState = .delivered
+        case .failed: targetState = .failed
+        default: return
+        }
+
+        // Find the message by lxmfId across all conversations and update its state
+        for i in conversations.indices {
+            if let j = conversations[i].messages.firstIndex(where: { $0.lxmfId == update.messageId }) {
+                conversations[i].messages[j].state = targetState
+                storageService?.saveConversations(conversations)
+                return
+            }
         }
     }
 

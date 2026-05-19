@@ -5,7 +5,10 @@
 import Foundation
 import CryptoKit
 import CommonCrypto
+import os.log
 import ReticulumKit
+
+private let logger = Logger(subsystem: "com.reticulummessenger", category: "Storage")
 
 /// Manages local persistence of app data using UserDefaults and file storage.
 final class StorageService {
@@ -18,10 +21,12 @@ final class StorageService {
     private let defaults = UserDefaults.standard
 
     private var storageURL: URL {
-        let appSupport = FileManager.default.urls(
+        guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
-        ).first!
+        ).first else {
+            fatalError("Application Support directory unavailable — cannot persist data")
+        }
         return appSupport.appendingPathComponent("ReticulumMessenger")
     }
 
@@ -34,9 +39,13 @@ final class StorageService {
     // MARK: - Conversations
 
     func saveConversations(_ conversations: [Conversation]) {
-        guard let data = try? JSONEncoder().encode(conversations) else { return }
-        let url = storageURL.appendingPathComponent("conversations.json")
-        try? data.write(to: url, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(conversations)
+            let url = storageURL.appendingPathComponent("conversations.json")
+            try data.write(to: url, options: .atomic)
+        } catch {
+            logger.error("Failed to save conversations: \(error.localizedDescription)")
+        }
     }
 
     func loadConversations() -> [Conversation] {
@@ -161,6 +170,13 @@ final class StorageService {
             return SymmetricKey(data: Data(SHA256.hash(data: passwordData + salt)))
         }
         return SymmetricKey(data: Data(derivedBytes))
+    }
+
+    // MARK: - Identity Management
+
+    func deleteIdentity() {
+        let identityURL = storageURL.appendingPathComponent("identity.key")
+        try? FileManager.default.removeItem(at: identityURL)
     }
 
     // MARK: - Private
