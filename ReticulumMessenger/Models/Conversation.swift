@@ -3,6 +3,49 @@
 
 import Foundation
 
+/// Duration after which messages auto-delete.
+enum DisappearingDuration: String, Codable, CaseIterable {
+    case off = "off"
+    case thirtySeconds = "30s"
+    case fiveMinutes = "5m"
+    case oneHour = "1h"
+    case twentyFourHours = "24h"
+    case oneWeek = "7d"
+
+    var label: String {
+        switch self {
+        case .off: return "Off"
+        case .thirtySeconds: return "30 seconds"
+        case .fiveMinutes: return "5 minutes"
+        case .oneHour: return "1 hour"
+        case .twentyFourHours: return "24 hours"
+        case .oneWeek: return "1 week"
+        }
+    }
+
+    var interval: TimeInterval? {
+        switch self {
+        case .off: return nil
+        case .thirtySeconds: return 30
+        case .fiveMinutes: return 300
+        case .oneHour: return 3600
+        case .twentyFourHours: return 86400
+        case .oneWeek: return 604800
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .off: return "timer"
+        case .thirtySeconds: return "30.circle"
+        case .fiveMinutes: return "5.circle"
+        case .oneHour: return "clock"
+        case .twentyFourHours: return "clock.badge.checkmark"
+        case .oneWeek: return "calendar.circle"
+        }
+    }
+}
+
 /// A conversation with a specific peer, containing message history.
 struct Conversation: Identifiable, Codable, Hashable {
     static func == (lhs: Conversation, rhs: Conversation) -> Bool {
@@ -19,6 +62,8 @@ struct Conversation: Identifiable, Codable, Hashable {
     var messages: [ChatMessage]
     var lastActivity: Date
     var isArchived: Bool
+    var isPinned: Bool
+    var disappearingDuration: DisappearingDuration
 
     var peerHexHash: String {
         peerHash.map { String(format: "%02x", $0) }.joined()
@@ -41,7 +86,9 @@ struct Conversation: Identifiable, Codable, Hashable {
         displayName: String? = nil,
         messages: [ChatMessage] = [],
         lastActivity: Date = Date(),
-        isArchived: Bool = false
+        isArchived: Bool = false,
+        isPinned: Bool = false,
+        disappearingDuration: DisappearingDuration = .off
     ) {
         self.id = UUID()
         self.peerHash = peerHash
@@ -49,6 +96,25 @@ struct Conversation: Identifiable, Codable, Hashable {
         self.messages = messages
         self.lastActivity = lastActivity
         self.isArchived = isArchived
+        self.isPinned = isPinned
+        self.disappearingDuration = disappearingDuration
+    }
+
+    // Custom decoder for backward compatibility with older saved data
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        peerHash = try container.decode(Data.self, forKey: .peerHash)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        messages = try container.decode([ChatMessage].self, forKey: .messages)
+        lastActivity = try container.decode(Date.self, forKey: .lastActivity)
+        isArchived = try container.decode(Bool.self, forKey: .isArchived)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        disappearingDuration = try container.decodeIfPresent(DisappearingDuration.self, forKey: .disappearingDuration) ?? .off
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, peerHash, displayName, messages, lastActivity, isArchived, isPinned, disappearingDuration
     }
 
     /// The name to display — either the set display name or the short hash.

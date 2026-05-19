@@ -324,6 +324,22 @@ final class AppState: ObservableObject {
         saveUserPreferences()
     }
 
+    // MARK: - Conversation Pinning
+
+    func togglePin(_ conversationId: UUID) {
+        guard let idx = conversations.firstIndex(where: { $0.id == conversationId }) else { return }
+        conversations[idx].isPinned.toggle()
+        storageService?.saveConversations(conversations)
+    }
+
+    // MARK: - Disappearing Messages
+
+    func setDisappearingDuration(_ duration: DisappearingDuration, for conversationId: UUID) {
+        guard let idx = conversations.firstIndex(where: { $0.id == conversationId }) else { return }
+        conversations[idx].disappearingDuration = duration
+        storageService?.saveConversations(conversations)
+    }
+
     // MARK: - Private
 
     private func handleReceivedMessage(_ message: LXMessage) {
@@ -378,12 +394,16 @@ final class AppState: ObservableObject {
 
     private func addMessageToConversation(_ message: LXMessage) {
         let peerHash = message.isIncoming ? message.sourceHash : message.destinationHash
-        let chatMessage = ChatMessage(from: message)
+        var chatMessage = ChatMessage(from: message)
 
         if let idx = conversations.firstIndex(where: { $0.peerHash == peerHash }) {
+            // Apply disappearing duration
+            if let interval = conversations[idx].disappearingDuration.interval {
+                chatMessage.expiresAt = Date().addingTimeInterval(interval)
+            }
             conversations[idx].messages.append(chatMessage)
             conversations[idx].lastActivity = Date()
-            // Move to top
+            // Move to top (but keep pinned conversations at the top)
             let conv = conversations.remove(at: idx)
             conversations.insert(conv, at: 0)
         } else {
@@ -433,7 +453,24 @@ final class AppState: ObservableObject {
                     connectedRNode?.radioOnline = stats.online
                     connectedRNode?.firmwareVersion = stats.firmwareVersion
                 }
+
+                // Purge expired disappearing messages
+                purgeExpiredMessages()
             }
+        }
+    }
+
+    private func purgeExpiredMessages() {
+        var changed = false
+        for i in conversations.indices {
+            let before = conversations[i].messages.count
+            conversations[i].messages.removeAll { $0.isExpired }
+            if conversations[i].messages.count != before {
+                changed = true
+            }
+        }
+        if changed {
+            storageService?.saveConversations(conversations)
         }
     }
 

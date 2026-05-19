@@ -78,6 +78,12 @@ struct NetworkStatusView: View {
                 // Quick Links
                 Section("Tools") {
                     NavigationLink {
+                        NetworkGraphView()
+                    } label: {
+                        Label("Mesh Topology", systemImage: "point.3.connected.trianglepath.dotted")
+                    }
+
+                    NavigationLink {
                         AnnounceStreamView()
                     } label: {
                         Label("Announce Stream", systemImage: "megaphone")

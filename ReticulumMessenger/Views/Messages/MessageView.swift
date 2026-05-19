@@ -21,15 +21,38 @@ struct MessageView: View {
     @State private var pendingAttachmentMime: String?
     @State private var pendingAttachmentName: String?
 
+    // Forward state
+    @State private var forwardingMessage: ChatMessage?
+    @State private var showForwardSheet = false
+
+    // Image viewer
+    @State private var viewerImage: UIImage?
+
     var body: some View {
         VStack(spacing: 0) {
+            // Disappearing messages banner
+            if currentConversation.disappearingDuration != .off {
+                disappearingBanner
+            }
+
             // Message list
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(currentMessages) { message in
-                            MessageBubble(message: message)
-                                .id(message.id)
+                            MessageBubble(
+                                message: message,
+                                onReaction: { emoji in
+                                    toggleReaction(emoji, on: message.id)
+                                },
+                                onForward: {
+                                    forwardingMessage = message
+                                    showForwardSheet = true
+                                },
+                                onCopy: nil,
+                                disappearingDuration: currentConversation.disappearingDuration
+                            )
+                            .id(message.id)
                         }
                     }
                     .padding(.horizontal)
@@ -125,6 +148,14 @@ struct MessageView: View {
             }
             .presentationDetents([.medium])
         }
+        .sheet(isPresented: $showForwardSheet) {
+            ForwardMessageSheet(message: forwardingMessage) { targetConversation in
+                forwardMessage(forwardingMessage, to: targetConversation)
+            }
+        }
+        .fullScreenCover(item: $viewerImage) { image in
+            ImageViewerView(image: image)
+        }
         .onChange(of: selectedImage) { _, newImage in
             if let image = newImage, let data = image.jpegData(compressionQuality: 0.7) {
                 pendingAttachmentData = data
@@ -136,8 +167,12 @@ struct MessageView: View {
 
     // MARK: - Computed
 
+    private var currentConversation: Conversation {
+        appState.conversations.first(where: { $0.id == conversation.id }) ?? conversation
+    }
+
     private var currentMessages: [ChatMessage] {
-        appState.conversations.first(where: { $0.id == conversation.id })?.messages ?? conversation.messages
+        currentConversation.messages.filter { !$0.isExpired }
     }
 
     private var canSend: Bool {
@@ -147,6 +182,19 @@ struct MessageView: View {
     }
 
     // MARK: - Subviews
+
+    private var disappearingBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "timer")
+                .font(.caption2)
+            Text("Disappearing messages: \(currentConversation.disappearingDuration.label)")
+                .font(.caption2)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity)
+        .background(Color(.systemGray6))
+    }
 
     private func attachmentPreview(image: UIImage) -> some View {
         HStack {
@@ -199,7 +247,6 @@ struct MessageView: View {
 
         if let attachmentData = pendingAttachmentData,
            let mime = pendingAttachmentMime {
-            // Send attachment
             messageText = ""
             isSending = true
             let name = pendingAttachmentName
@@ -219,7 +266,6 @@ struct MessageView: View {
                 isSending = false
             }
         } else if !content.isEmpty {
-            // Send text
             messageText = ""
             isSending = true
 
@@ -231,6 +277,21 @@ struct MessageView: View {
                 }
                 isSending = false
             }
+        }
+    }
+
+    private func toggleReaction(_ emoji: String, on messageId: UUID) {
+        guard let convIdx = appState.conversations.firstIndex(where: { $0.id == conversation.id }),
+              let msgIdx = appState.conversations[convIdx].messages.firstIndex(where: { $0.id == messageId }) else { return }
+
+        appState.conversations[convIdx].messages[msgIdx].toggleReaction(emoji, isLocal: true)
+        appState.storageService?.saveConversations(appState.conversations)
+    }
+
+    private func forwardMessage(_ message: ChatMessage?, to target: Conversation) {
+        guard let message else { return }
+        Task {
+            try? await appState.sendMessage(content: message.content, to: target.peerHash)
         }
     }
 
@@ -267,9 +328,7 @@ struct MessageView: View {
                 appState.conversations[idx].messages[i].isRead = true
             }
         }
-        // Persist read state
         appState.storageService?.saveConversations(appState.conversations)
-        // Clear notifications for this conversation
         NotificationService.shared.clearNotifications(for: conversation.peerHexHash)
         let totalUnread = appState.conversations.reduce(0) { $0 + $1.unreadCount }
         NotificationService.shared.updateBadgeCount(totalUnread)
@@ -299,10 +358,69 @@ struct MessageView: View {
     }
 }
 
+// MARK: - UIImage Identifiable for fullScreenCover
+
+extension UIImage: @retroactive Identifiable {
+    public var id: ObjectIdentifier { ObjectIdentifier(self) }
+}
+
+// MARK: - Forward Message Sheet
+
+struct ForwardMessageSheet: View {
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    let message: ChatMessage?
+    let onForward: (Conversation) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let message {
+                    Section {
+                        HStack {
+                            Image(systemName: "arrowshape.turn.up.right.fill")
+                                .foregroundStyle(.accentColor)
+                            Text(message.content)
+                                .lineLimit(2)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Section("Forward to") {
+                    ForEach(appState.conversations) { conversation in
+                        Button {
+                            onForward(conversation)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 12) {
+                                AvatarView(hash: conversation.peerHash, size: 36)
+                                Text(conversation.resolvedName)
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Forward Message")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Peer Detail
 
 struct PeerDetailView: View {
+    @EnvironmentObject var appState: AppState
     let conversation: Conversation
+
+    @State private var disappearingDuration: DisappearingDuration = .off
 
     var body: some View {
         List {
@@ -339,6 +457,20 @@ struct PeerDetailView: View {
                 }
             }
 
+            Section("Disappearing Messages") {
+                Picker("Auto-delete after", selection: $disappearingDuration) {
+                    ForEach(DisappearingDuration.allCases, id: \.self) { duration in
+                        Label(duration.label, systemImage: duration.icon)
+                            .tag(duration)
+                    }
+                }
+                .onChange(of: disappearingDuration) { _, newValue in
+                    appState.setDisappearingDuration(newValue, for: conversation.id)
+                }
+            } footer: {
+                Text("When enabled, messages in this conversation will automatically disappear after the selected time period.")
+            }
+
             Section {
                 Button {
                     UIPasteboard.general.string = conversation.peerHexHash
@@ -349,5 +481,10 @@ struct PeerDetailView: View {
         }
         .navigationTitle("Peer Info")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if let conv = appState.conversations.first(where: { $0.id == conversation.id }) {
+                disappearingDuration = conv.disappearingDuration
+            }
+        }
     }
 }

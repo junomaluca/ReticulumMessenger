@@ -44,6 +44,12 @@ struct SettingsView: View {
                         Label("QR Code", systemImage: "qrcode")
                     }
 
+                    NavigationLink {
+                        IdentityExportView()
+                    } label: {
+                        Label("Backup & Restore", systemImage: "key.viewfinder")
+                    }
+
                     Button("Announce on Network") {
                         Task {
                             try? await appState.messengerService?.announce(
@@ -109,7 +115,7 @@ struct SettingsView: View {
 
                 // About
                 Section("About") {
-                    LabeledContent("Version", value: "0.2.0")
+                    LabeledContent("Version", value: "0.3.0")
                     LabeledContent("Protocol", value: "Reticulum")
                     LabeledContent("Messaging", value: "LXMF")
 

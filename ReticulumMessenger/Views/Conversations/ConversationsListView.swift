@@ -56,12 +56,59 @@ struct ConversationsListView: View {
 
     private var conversationList: some View {
         List {
-            ForEach(filteredConversations) { conversation in
-                NavigationLink(value: conversation) {
-                    ConversationRow(conversation: conversation)
+            // Pinned section
+            if !pinnedConversations.isEmpty {
+                Section {
+                    ForEach(pinnedConversations) { conversation in
+                        NavigationLink(value: conversation) {
+                            ConversationRow(conversation: conversation)
+                        }
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                appState.togglePin(conversation.id)
+                            } label: {
+                                Label("Unpin", systemImage: "pin.slash")
+                            }
+                            .tint(.orange)
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                deleteConversation(conversation.id)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                } header: {
+                    Label("Pinned", systemImage: "pin.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                 }
             }
-            .onDelete(perform: deleteConversations)
+
+            // Regular conversations
+            Section {
+                ForEach(unpinnedConversations) { conversation in
+                    NavigationLink(value: conversation) {
+                        ConversationRow(conversation: conversation)
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button {
+                            appState.togglePin(conversation.id)
+                        } label: {
+                            Label("Pin", systemImage: "pin")
+                        }
+                        .tint(.orange)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            deleteConversation(conversation.id)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
         }
         .listStyle(.plain)
         .navigationDestination(for: Conversation.self) { conversation in
@@ -83,21 +130,24 @@ struct ConversationsListView: View {
     }
 
     private var filteredConversations: [Conversation] {
-        if searchText.isEmpty {
-            return appState.conversations.filter { !$0.isArchived }
-        }
-        return appState.conversations.filter {
-            !$0.isArchived && (
-                $0.resolvedName.localizedCaseInsensitiveContains(searchText) ||
-                $0.peerHexHash.contains(searchText.lowercased())
-            )
+        let active = appState.conversations.filter { !$0.isArchived }
+        if searchText.isEmpty { return active }
+        return active.filter {
+            $0.resolvedName.localizedCaseInsensitiveContains(searchText) ||
+            $0.peerHexHash.contains(searchText.lowercased())
         }
     }
 
-    private func deleteConversations(at offsets: IndexSet) {
-        let filtered = filteredConversations
-        let idsToDelete = offsets.map { filtered[$0].id }
-        appState.conversations.removeAll { idsToDelete.contains($0.id) }
+    private var pinnedConversations: [Conversation] {
+        filteredConversations.filter { $0.isPinned }
+    }
+
+    private var unpinnedConversations: [Conversation] {
+        filteredConversations.filter { !$0.isPinned }
+    }
+
+    private func deleteConversation(_ id: UUID) {
+        appState.conversations.removeAll { $0.id == id }
         appState.storageService?.saveConversations(appState.conversations)
     }
 }
@@ -113,9 +163,21 @@ struct ConversationRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
+                    if conversation.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                    }
                     Text(conversation.resolvedName)
                         .font(.headline)
                         .lineLimit(1)
+
+                    if conversation.disappearingDuration != .off {
+                        Image(systemName: "timer")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+
                     Spacer()
                     if let lastMsg = conversation.lastMessage {
                         Text(lastMsg.timestamp, style: .relative)

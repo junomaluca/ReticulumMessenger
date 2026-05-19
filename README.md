@@ -4,7 +4,7 @@
 
 Reticulum Messenger is the iOS counterpart to [Sideband](https://github.com/markqvist/Sideband) for Android. It implements the [LXMF](https://github.com/markqvist/lxmf) messaging protocol over Reticulum, enabling fully encrypted peer-to-peer communication that works over any medium — WiFi, cellular, LoRa, serial, or packet radio — with zero dependence on centralized infrastructure.
 
-> **Status: Active Development (v0.2.0)**
+> **Status: Active Development (v0.3.0)**
 > The core protocol architecture is in place with a comprehensive feature set. Community contributions are welcome to refine, test, and extend functionality. See [Contributing](#contributing) below.
 
 ---
@@ -61,15 +61,26 @@ There is currently no native iOS client for the Reticulum ecosystem. Android use
 - [x] Device telemetry collection (battery, position)
 - [x] Peer location tracking with stale-entry cleanup
 
+### Privacy & Security
+- [x] Disappearing messages — auto-delete after 30s, 5m, 1h, 24h, or 1 week per conversation
+- [x] Identity backup & restore — password-encrypted identity export (.rnid files)
+- [x] Visual identity fingerprints — color-coded grid for at-a-glance identity verification
+
 ### User Experience
 - [x] Modern SwiftUI interface with tab navigation
 - [x] Deterministic identicon avatars from identity hashes
+- [x] Message reactions — emoji reactions with long-press context menu
+- [x] Conversation pinning — pin important chats to the top
+- [x] Message forwarding — forward messages between conversations
+- [x] Full-screen image viewer with pinch-to-zoom and share
+- [x] Mesh network topology graph — interactive visualization of nodes and connections
 - [x] Local notifications for incoming messages
 - [x] Haptic feedback (send, receive, connect events)
 - [x] Notification categories with quick reply
 - [x] Unread badges on conversations and app icon
 - [x] Conversation search
-- [x] Swipe-to-delete conversations
+- [x] Swipe-to-delete and swipe-to-pin conversations
+- [x] Backward-compatible data migration (safe upgrades)
 
 ### Planned
 - [ ] Full link establishment with proof verification

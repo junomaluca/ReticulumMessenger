@@ -3,6 +3,7 @@
 // Local persistence for conversations, settings, and interface configs.
 
 import Foundation
+import CryptoKit
 import ReticulumKit
 
 /// Manages local persistence of app data using UserDefaults and file storage.
@@ -71,6 +72,81 @@ final class StorageService {
         return configs
     }
 
+    // MARK: - Identity Export/Import
+
+    func exportIdentity(password: String) throws -> URL {
+        let identityURL = storageURL.appendingPathComponent("identity.key")
+        guard FileManager.default.fileExists(atPath: identityURL.path) else {
+            throw StorageError.noIdentity
+        }
+
+        let identityData = try Data(contentsOf: identityURL)
+
+        // Encrypt with password-derived key using CryptoKit
+        let salt = Data((0..<16).map { _ in UInt8.random(in: 0...255) })
+        let key = deriveKey(password: password, salt: salt)
+
+        let sealedBox = try ChaChaPoly.seal(identityData, using: key)
+        let combined = sealedBox.combined
+
+        // Package: magic bytes + version + salt + encrypted data
+        var exportData = Data("RNID".utf8)  // magic
+        exportData.append(UInt8(1))          // version
+        exportData.append(salt)
+        exportData.append(combined)
+
+        let exportURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("identity-backup.rnid")
+        try exportData.write(to: exportURL)
+        return exportURL
+    }
+
+    func importIdentity(from url: URL, password: String) throws {
+        guard url.startAccessingSecurityScopedResource() else {
+            throw StorageError.accessDenied
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        let data = try Data(contentsOf: url)
+
+        // Validate magic bytes
+        guard data.count > 21,
+              String(data: data.prefix(4), encoding: .utf8) == "RNID" else {
+            throw StorageError.invalidBackup
+        }
+
+        let version = data[4]
+        guard version == 1 else {
+            throw StorageError.unsupportedVersion
+        }
+
+        let salt = data[5..<21]
+        let encrypted = data[21...]
+
+        let key = deriveKey(password: password, salt: Data(salt))
+
+        do {
+            let sealedBox = try ChaChaPoly.SealedBox(combined: encrypted)
+            let decrypted = try ChaChaPoly.open(sealedBox, using: key)
+
+            // Write to identity file
+            let identityURL = storageURL.appendingPathComponent("identity.key")
+            try decrypted.write(to: identityURL, options: .atomic)
+        } catch {
+            throw StorageError.wrongPassword
+        }
+    }
+
+    private func deriveKey(password: String, salt: Data) -> SymmetricKey {
+        let passwordData = Data(password.utf8)
+        let keyData = HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: SymmetricKey(data: passwordData),
+            salt: salt,
+            outputByteCount: 32
+        )
+        return keyData
+    }
+
     // MARK: - Private
 
     private func ensureStorageDirectory() {
@@ -78,5 +154,25 @@ final class StorageService {
             at: storageURL,
             withIntermediateDirectories: true
         )
+    }
+}
+
+// MARK: - Errors
+
+enum StorageError: Error, LocalizedError {
+    case noIdentity
+    case accessDenied
+    case invalidBackup
+    case unsupportedVersion
+    case wrongPassword
+
+    var errorDescription: String? {
+        switch self {
+        case .noIdentity: return "No identity found to export"
+        case .accessDenied: return "Cannot access the selected file"
+        case .invalidBackup: return "Not a valid identity backup file"
+        case .unsupportedVersion: return "Backup file version not supported"
+        case .wrongPassword: return "Incorrect password"
+        }
     }
 }
