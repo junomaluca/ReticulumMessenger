@@ -899,13 +899,23 @@ final class AppState: ObservableObject {
 
     private func loadUserPreferences() {
         let defaults = UserDefaults.standard
-        // Default: auto-announce, location sharing, and transport mode ON for new installs
+
+        // One-time migration: enable mesh features for existing installs
+        if !defaults.bool(forKey: "meshDefaultsV2Applied") {
+            defaults.set(true, forKey: "autoAnnounce")
+            defaults.set(true, forKey: "locationSharing")
+            defaults.set(true, forKey: "transportMode")
+            defaults.set(true, forKey: "meshDefaultsV2Applied")
+        }
+
+        // Register defaults for fresh installs
         defaults.register(defaults: [
             "autoAnnounce": true,
             "locationSharing": true,
             "transportMode": true,
             "propagationNode": false
         ])
+
         autoAnnounceEnabled = defaults.bool(forKey: "autoAnnounce")
         transportModeEnabled = defaults.bool(forKey: "transportMode")
         propagationNodeEnabled = defaults.bool(forKey: "propagationNode")
