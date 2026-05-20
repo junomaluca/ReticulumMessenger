@@ -34,8 +34,10 @@ struct AttachmentMenu: View {
             }
         } label: {
             Image(systemName: "plus.circle.fill")
-                .font(.title3)
+                .font(.title2)
                 .foregroundStyle(Color.accentColor)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
     }
 }
