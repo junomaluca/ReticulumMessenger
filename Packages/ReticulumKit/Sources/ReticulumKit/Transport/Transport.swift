@@ -322,9 +322,14 @@ public actor RNSTransport {
             announceData: packet.data
         )
 
-        // Extract optional app data (after pubkey + namehash + randomhash + signature)
-        let minSize = RNS.identityKeySize + 32 + 10 + 64
-        let appData: Data? = data.count > minSize ? Data(data[minSize...]) : nil
+        // Extract optional app data.
+        // Packet layout: pubkey[64] | nameHash[32] | randomHash[10] | appData[?] | signature[64]
+        // appData sits between the fixed header and the trailing Ed25519 signature.
+        let headerSize = RNS.identityKeySize + 32 + 10  // 106
+        let signatureSize = 64
+        let minSize = headerSize + signatureSize         // 170
+        let appData: Data? = data.count > minSize ?
+            Data(data[headerSize..<(data.count - signatureSize)]) : nil
 
         // Notify announce handlers
         for handler in announceHandlers {

@@ -79,7 +79,6 @@ final class AppState: ObservableObject {
         let telemetry = TelemetryService()
         self.telemetryService = telemetry
         telemetryCancellable = telemetry.objectWillChange
-            .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.objectWillChange.send() }
 
         // Load saved conversations and settings
@@ -171,6 +170,16 @@ final class AppState: ObservableObject {
             // Start auto-announce if enabled
             if autoAnnounceEnabled {
                 startAutoAnnounce()
+            }
+
+            // Activate transport mode if enabled
+            if transportModeEnabled {
+                await rns.transport.setTransportEnabled(true)
+            }
+
+            // Activate propagation node if enabled
+            if propagationNodeEnabled {
+                await router.setPropagationNode(true)
             }
 
         } catch {
@@ -890,6 +899,13 @@ final class AppState: ObservableObject {
 
     private func loadUserPreferences() {
         let defaults = UserDefaults.standard
+        // Default: auto-announce, location sharing, and transport mode ON for new installs
+        defaults.register(defaults: [
+            "autoAnnounce": true,
+            "locationSharing": true,
+            "transportMode": true,
+            "propagationNode": false
+        ])
         autoAnnounceEnabled = defaults.bool(forKey: "autoAnnounce")
         transportModeEnabled = defaults.bool(forKey: "transportMode")
         propagationNodeEnabled = defaults.bool(forKey: "propagationNode")
