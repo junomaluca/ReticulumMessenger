@@ -29,31 +29,12 @@ struct NewGroupView: View {
                             .foregroundStyle(.secondary)
                             .font(.subheadline)
                     } else {
-                        ForEach(appState.knownPeers, id: \.destinationHash) { peer in
-                            Button {
-                                togglePeer(peer.hexHash)
-                            } label: {
-                                HStack {
-                                    AvatarView(hash: peer.destinationHash, size: 36)
-                                    VStack(alignment: .leading) {
-                                        Text(peer.displayName)
-                                            .font(.body)
-                                        Text(peer.shortHash)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .monospaced()
-                                    }
-                                    Spacer()
-                                    if selectedPeers.contains(peer.hexHash) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.accentColor)
-                                    } else {
-                                        Image(systemName: "circle")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            .tint(.primary)
+                        ForEach(appState.knownPeers, id: \.hexHash) { (peer: PeerInfo) in
+                            PeerSelectionRow(
+                                peer: peer,
+                                isSelected: selectedPeers.contains(peer.hexHash),
+                                onTap: { togglePeer(peer.hexHash) }
+                            )
                         }
                     }
                 } header: {
@@ -102,5 +83,38 @@ struct NewGroupView: View {
                 onCreated?(conversation)
             }
         }
+    }
+}
+
+// MARK: - Peer Selection Row
+
+private struct PeerSelectionRow: View {
+    let peer: PeerInfo
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                AvatarView(hash: peer.destinationHash, size: 36)
+                VStack(alignment: .leading) {
+                    Text(peer.displayName)
+                        .font(.body)
+                    Text(peer.shortHash)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospaced()
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.accentColor)
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .tint(.primary)
     }
 }
