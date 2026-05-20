@@ -250,6 +250,37 @@ final class AppState: ObservableObject {
         storageService?.saveConversations(conversations)
     }
 
+    // MARK: - Interface Management (Edit/Delete)
+
+    func deleteInterface(named name: String) async {
+        // Remove from transport layer
+        if let rns = reticulum {
+            await rns.transport.removeInterface(name: name)
+        }
+        // Remove from saved configs
+        savedInterfaceConfigs.removeAll { $0.name == name }
+        saveCurrentInterfaces()
+        await refreshInterfaces()
+    }
+
+    func savedInterfaceConfig(named name: String) -> RNSInterfaceConfig? {
+        savedInterfaceConfigs.first { $0.name == name }
+    }
+
+    func updateInterface(oldName: String, name: String, host: String, port: UInt16, type: RNSInterfaceConfig.InterfaceType) async throws {
+        // Remove old
+        await deleteInterface(named: oldName)
+        // Add new
+        switch type {
+        case .tcpClient:
+            try await addTCPInterface(name: name, host: host, port: port)
+        case .udp:
+            try await addUDPInterface(name: name, host: host, port: port, listenPort: port)
+        default:
+            break
+        }
+    }
+
     // MARK: - RNode Management
 
     func startRNodeScan(onDiscover: @escaping (RNodeInterface.DiscoveredRNode) -> Void) {

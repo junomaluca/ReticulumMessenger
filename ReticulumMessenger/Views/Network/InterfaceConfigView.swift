@@ -7,6 +7,9 @@ struct InterfaceConfigView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
+    /// When non-nil, we are editing an existing interface.
+    var editing: InterfaceInfo?
+
     @State private var interfaceType = 0 // 0 = TCP, 1 = UDP
     @State private var name = ""
     @State private var host = ""
@@ -15,6 +18,8 @@ struct InterfaceConfigView: View {
     @State private var isConnecting = false
     @State private var showError = false
     @State private var errorMessage = ""
+
+    private var isEditing: Bool { editing != nil }
 
     var body: some View {
         NavigationStack {
@@ -26,6 +31,7 @@ struct InterfaceConfigView: View {
                         Text("UDP").tag(1)
                     }
                     .pickerStyle(.segmented)
+                    .disabled(isEditing)
                 }
 
                 Section {
@@ -41,22 +47,24 @@ struct InterfaceConfigView: View {
                     udpSection
                 }
 
-                // Quick presets
-                Section {
-                    Text("The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                // Quick presets (only for new interfaces)
+                if !isEditing {
+                    Section {
+                        Text("The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
 
-                    Button("Use Testnet") {
-                        name = "RNS Testnet"
-                        host = "amsterdam.connect.reticulum.network"
-                        port = "4965"
-                        interfaceType = 0
+                        Button("Use Testnet") {
+                            name = "RNS Testnet"
+                            host = "amsterdam.connect.reticulum.network"
+                            port = "4965"
+                            interfaceType = 0
+                        }
+                        .font(.callout)
                     }
-                    .font(.callout)
                 }
             }
-            .navigationTitle("Add Interface")
+            .navigationTitle(isEditing ? "Edit Interface" : "Add Interface")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -66,7 +74,7 @@ struct InterfaceConfigView: View {
                     if isConnecting {
                         ProgressView()
                     } else {
-                        Button("Connect") { connect() }
+                        Button(isEditing ? "Save" : "Connect") { connect() }
                             .disabled(!isValid)
                     }
                 }
@@ -75,6 +83,21 @@ struct InterfaceConfigView: View {
                 Button("OK") {}
             } message: {
                 Text(errorMessage)
+            }
+            .onAppear {
+                if let iface = editing {
+                    name = iface.name
+                    if iface.type.contains("TCP") {
+                        interfaceType = 0
+                    } else if iface.type.contains("UDP") {
+                        interfaceType = 1
+                    }
+                    // Try to populate host/port from saved configs
+                    if let config = appState.savedInterfaceConfig(named: iface.name) {
+                        host = config.host ?? ""
+                        if let p = config.port { port = "\(p)" }
+                    }
+                }
             }
         }
     }
@@ -136,7 +159,16 @@ struct InterfaceConfigView: View {
 
         Task {
             do {
-                if interfaceType == 0 {
+                if isEditing {
+                    let type: ReticulumKit.RNSInterfaceConfig.InterfaceType = interfaceType == 0 ? .tcpClient : .udp
+                    try await appState.updateInterface(
+                        oldName: editing!.name,
+                        name: name,
+                        host: host,
+                        port: portNum,
+                        type: type
+                    )
+                } else if interfaceType == 0 {
                     try await appState.addTCPInterface(name: name, host: host, port: portNum)
                 } else {
                     let listen = UInt16(listenPort) ?? portNum

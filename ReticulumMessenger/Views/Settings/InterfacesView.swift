@@ -6,6 +6,8 @@ import SwiftUI
 struct InterfacesView: View {
     @EnvironmentObject var appState: AppState
     @State private var showAddInterface = false
+    @State private var editingInterface: InterfaceInfo?
+    @State private var interfaceToDelete: InterfaceInfo?
 
     var body: some View {
         List {
@@ -24,6 +26,10 @@ struct InterfacesView: View {
                                 .frame(width: 10, height: 10)
                             Text(iface.name)
                                 .font(.headline)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
                         }
 
                         Grid(alignment: .leading, horizontalSpacing: 16) {
@@ -51,6 +57,25 @@ struct InterfacesView: View {
                         .font(.subheadline)
                     }
                     .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        editingInterface = iface
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            interfaceToDelete = iface
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button {
+                            editingInterface = iface
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .tint(.blue)
+                    }
                 }
             }
         }
@@ -66,6 +91,23 @@ struct InterfacesView: View {
         }
         .sheet(isPresented: $showAddInterface) {
             InterfaceConfigView()
+        }
+        .sheet(item: $editingInterface) { iface in
+            InterfaceConfigView(editing: iface)
+        }
+        .alert("Delete Interface", isPresented: .init(
+            get: { interfaceToDelete != nil },
+            set: { if !$0 { interfaceToDelete = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { interfaceToDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let iface = interfaceToDelete {
+                    Task { await appState.deleteInterface(named: iface.name) }
+                    interfaceToDelete = nil
+                }
+            }
+        } message: {
+            Text("Remove \"\(interfaceToDelete?.name ?? "")\"? The connection will be closed.")
         }
     }
 }
