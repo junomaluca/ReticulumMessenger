@@ -122,9 +122,18 @@ struct MessageView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
-                    PeerDetailView(conversation: conversation)
+                    if conversation.isGroup {
+                        GroupDetailView(conversation: conversation)
+                    } else {
+                        PeerDetailView(conversation: conversation)
+                    }
                 } label: {
-                    AvatarView(hash: conversation.peerHash, size: 28)
+                    if conversation.isGroup {
+                        Image(systemName: "person.3.fill")
+                            .font(.system(size: 14))
+                    } else {
+                        AvatarView(hash: conversation.peerHash, size: 28)
+                    }
                 }
             }
         }
@@ -268,7 +277,11 @@ struct MessageView: View {
 
             Task {
                 do {
-                    try await appState.sendMessage(content: content, to: conversation.peerHash)
+                    if conversation.isGroup {
+                        try await appState.sendGroupMessage(content: content, groupConversation: currentConversation)
+                    } else {
+                        try await appState.sendMessage(content: content, to: conversation.peerHash)
+                    }
                 } catch {
                     markLastOutgoingAsFailed()
                 }

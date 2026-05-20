@@ -6,6 +6,7 @@ import SwiftUI
 struct ConversationsListView: View {
     @EnvironmentObject var appState: AppState
     @State private var showNewConversation = false
+    @State private var showNewGroup = false
     @State private var showQRCode = false
     @State private var searchText = ""
 
@@ -30,8 +31,17 @@ struct ConversationsListView: View {
                         Image(systemName: "qrcode")
                     }
 
-                    Button {
-                        showNewConversation = true
+                    Menu {
+                        Button {
+                            showNewConversation = true
+                        } label: {
+                            Label("New Message", systemImage: "person")
+                        }
+                        Button {
+                            showNewGroup = true
+                        } label: {
+                            Label("New Group", systemImage: "person.3")
+                        }
                     } label: {
                         Image(systemName: "square.and.pencil")
                     }
@@ -39,6 +49,9 @@ struct ConversationsListView: View {
             }
             .sheet(isPresented: $showNewConversation) {
                 NewConversationView()
+            }
+            .sheet(isPresented: $showNewGroup) {
+                NewGroupView()
             }
             .sheet(isPresented: $showQRCode) {
                 NavigationStack {
@@ -159,7 +172,18 @@ struct ConversationRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(hash: conversation.peerHash, size: 48)
+            if conversation.isGroup {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color.accentColor)
+                }
+            } else {
+                AvatarView(hash: conversation.peerHash, size: 48)
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {

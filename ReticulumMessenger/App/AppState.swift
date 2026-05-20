@@ -212,7 +212,7 @@ final class AppState: ObservableObject {
     }
 
     func createConversation(with destinationHash: Data, name: String?) {
-        guard !conversations.contains(where: { $0.peerHash == destinationHash }) else { return }
+        guard !conversations.contains(where: { !$0.isGroup && $0.peerHash == destinationHash }) else { return }
 
         let conversation = Conversation(
             peerHash: destinationHash,
@@ -222,6 +222,63 @@ final class AppState: ObservableObject {
         )
         conversations.insert(conversation, at: 0)
         storageService?.saveConversations(conversations)
+    }
+
+    // MARK: - Group Messaging
+
+    /// Custom LXMF field ID for group identification.
+    static let groupFieldId: UInt8 = 0x10
+
+    func createGroupConversation(name: String, members: [PeerInfo]) {
+        let groupId = (0..<16).map { _ in UInt8.random(in: 0...255) }
+        let groupIdData = Data(groupId)
+        let memberHashes = members.map { $0.destinationHash }
+
+        let conversation = Conversation(
+            peerHash: groupIdData,
+            displayName: name,
+            messages: [],
+            lastActivity: Date(),
+            isGroup: true,
+            groupId: groupIdData,
+            memberHashes: memberHashes
+        )
+        conversations.insert(conversation, at: 0)
+        storageService?.saveConversations(conversations)
+    }
+
+    func sendGroupMessage(content: String, groupConversation: Conversation) async throws {
+        guard let router = lxmRouter, let rns = reticulum else { return }
+        guard groupConversation.isGroup, let groupId = groupConversation.groupId else { return }
+
+        let identity = try await rns.getLocalIdentity()
+        let senderName = storageService?.loadDisplayName()
+
+        // Fan-out: send individual messages to each group member
+        for memberHash in groupConversation.memberHashes {
+            var message = LXMessage(
+                sourceHash: identity.hash,
+                destinationHash: memberHash,
+                content: content,
+                fields: [Self.groupFieldId: .binary(groupId)]
+            )
+            message.sourceName = senderName
+            _ = try? await router.send(message)
+        }
+
+        // Add to local group conversation
+        let chatMessage = ChatMessage(
+            content: content,
+            isIncoming: false,
+            state: .sent,
+            senderName: senderName
+        )
+        if let idx = conversations.firstIndex(where: { $0.groupId == groupId }) {
+            conversations[idx].messages.append(chatMessage)
+            conversations[idx].lastActivity = Date()
+        }
+        storageService?.saveConversations(conversations)
+        NotificationService.shared.playMessageSentHaptic()
     }
 
     // MARK: - Interface Management
@@ -472,7 +529,12 @@ final class AppState: ObservableObject {
     // MARK: - Private
 
     private func handleReceivedMessage(_ message: LXMessage) {
-        addMessageToConversation(message)
+        // Check if this is a group message
+        if case .binary(let groupId) = message.fields[Self.groupFieldId] {
+            addGroupMessage(message, groupId: groupId)
+        } else {
+            addMessageToConversation(message)
+        }
 
         // Notification
         let senderName = message.sourceName ?? String(message.sourceHash.map { String(format: "%02x", $0) }.joined().prefix(8))
@@ -488,6 +550,35 @@ final class AppState: ObservableObject {
         // Update badge
         let totalUnread = conversations.reduce(0) { $0 + $1.unreadCount }
         NotificationService.shared.updateBadgeCount(totalUnread)
+    }
+
+    private func addGroupMessage(_ message: LXMessage, groupId: Data) {
+        var chatMessage = ChatMessage(from: message)
+        chatMessage.senderName = message.sourceName ?? String(message.sourceHexHash.prefix(8))
+
+        if let idx = conversations.firstIndex(where: { $0.groupId == groupId }) {
+            if let interval = conversations[idx].disappearingDuration.interval {
+                chatMessage.expiresAt = Date().addingTimeInterval(interval)
+            }
+            conversations[idx].messages.append(chatMessage)
+            conversations[idx].lastActivity = Date()
+            let conv = conversations.remove(at: idx)
+            if conv.isPinned {
+                conversations.insert(conv, at: 0)
+            } else {
+                let firstUnpinnedIdx = conversations.firstIndex(where: { !$0.isPinned }) ?? conversations.count
+                conversations.insert(conv, at: firstUnpinnedIdx)
+            }
+            // Add sender to members if not already present
+            if !conversations.first(where: { $0.groupId == groupId })!.memberHashes.contains(message.sourceHash) {
+                if let i = conversations.firstIndex(where: { $0.groupId == groupId }) {
+                    conversations[i].memberHashes.append(message.sourceHash)
+                }
+            }
+        }
+        // If no matching group, this is a group we haven't joined — ignore for now
+
+        storageService?.saveConversations(conversations)
     }
 
     private func handleAnnounce(hash: Data, name: String?, appData: String?) {

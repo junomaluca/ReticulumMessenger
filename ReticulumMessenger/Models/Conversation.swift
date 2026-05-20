@@ -46,7 +46,7 @@ enum DisappearingDuration: String, Codable, CaseIterable {
     }
 }
 
-/// A conversation with a specific peer, containing message history.
+/// A conversation with a specific peer or group, containing message history.
 struct Conversation: Identifiable, Codable, Hashable {
     static func == (lhs: Conversation, rhs: Conversation) -> Bool {
         lhs.id == rhs.id
@@ -65,8 +65,17 @@ struct Conversation: Identifiable, Codable, Hashable {
     var isPinned: Bool
     var disappearingDuration: DisappearingDuration
 
+    // Group conversation support
+    var isGroup: Bool
+    var groupId: Data?
+    var memberHashes: [Data]
+
     var peerHexHash: String {
         peerHash.map { String(format: "%02x", $0) }.joined()
+    }
+
+    var groupHexId: String? {
+        groupId?.map { String(format: "%02x", $0) }.joined()
     }
 
     var shortHash: String {
@@ -88,7 +97,10 @@ struct Conversation: Identifiable, Codable, Hashable {
         lastActivity: Date = Date(),
         isArchived: Bool = false,
         isPinned: Bool = false,
-        disappearingDuration: DisappearingDuration = .off
+        disappearingDuration: DisappearingDuration = .off,
+        isGroup: Bool = false,
+        groupId: Data? = nil,
+        memberHashes: [Data] = []
     ) {
         self.id = UUID()
         self.peerHash = peerHash
@@ -98,6 +110,9 @@ struct Conversation: Identifiable, Codable, Hashable {
         self.isArchived = isArchived
         self.isPinned = isPinned
         self.disappearingDuration = disappearingDuration
+        self.isGroup = isGroup
+        self.groupId = groupId
+        self.memberHashes = memberHashes
     }
 
     // Custom decoder for backward compatibility with older saved data
@@ -111,10 +126,14 @@ struct Conversation: Identifiable, Codable, Hashable {
         isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
         isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
         disappearingDuration = try container.decodeIfPresent(DisappearingDuration.self, forKey: .disappearingDuration) ?? .off
+        isGroup = try container.decodeIfPresent(Bool.self, forKey: .isGroup) ?? false
+        groupId = try container.decodeIfPresent(Data.self, forKey: .groupId)
+        memberHashes = try container.decodeIfPresent([Data].self, forKey: .memberHashes) ?? []
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, peerHash, displayName, messages, lastActivity, isArchived, isPinned, disappearingDuration
+        case isGroup, groupId, memberHashes
     }
 
     /// The name to display — either the set display name or the short hash.

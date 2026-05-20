@@ -28,6 +28,7 @@ struct ChatMessage: Identifiable, Codable {
     var isRead: Bool
     var reactions: [MessageReaction]
     var expiresAt: Date?
+    var senderName: String?
 
     enum MessageState: String, Codable {
         case pending
@@ -49,7 +50,8 @@ struct ChatMessage: Identifiable, Codable {
         state: MessageState = .pending,
         isRead: Bool = false,
         reactions: [MessageReaction] = [],
-        expiresAt: Date? = nil
+        expiresAt: Date? = nil,
+        senderName: String? = nil
     ) {
         self.id = UUID()
         self.lxmfId = lxmfId
@@ -60,6 +62,7 @@ struct ChatMessage: Identifiable, Codable {
         self.isRead = isRead
         self.reactions = reactions
         self.expiresAt = expiresAt
+        self.senderName = senderName
     }
 
     /// Create from an LXMF message.
@@ -80,6 +83,7 @@ struct ChatMessage: Identifiable, Codable {
         self.isRead = !lxMessage.isIncoming
         self.reactions = []
         self.expiresAt = nil
+        self.senderName = lxMessage.sourceName
     }
 
     // Custom decoder for backward compatibility with older saved data
@@ -94,10 +98,11 @@ struct ChatMessage: Identifiable, Codable {
         isRead = try container.decode(Bool.self, forKey: .isRead)
         reactions = try container.decodeIfPresent([MessageReaction].self, forKey: .reactions) ?? []
         expiresAt = try container.decodeIfPresent(Date.self, forKey: .expiresAt)
+        senderName = try container.decodeIfPresent(String.self, forKey: .senderName)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, lxmfId, content, timestamp, isIncoming, state, isRead, reactions, expiresAt
+        case id, lxmfId, content, timestamp, isIncoming, state, isRead, reactions, expiresAt, senderName
     }
 
     mutating func toggleReaction(_ emoji: String, isLocal: Bool) {

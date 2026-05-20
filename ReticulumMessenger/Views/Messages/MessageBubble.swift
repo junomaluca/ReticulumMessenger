@@ -26,6 +26,12 @@ struct MessageBubble: View {
 
                 // Message content
                 VStack(alignment: message.isIncoming ? .leading : .trailing, spacing: 4) {
+                    if message.isIncoming, let sender = message.senderName {
+                        Text(sender)
+                            .font(.caption.bold())
+                            .foregroundColor(.accentColor)
+                    }
+
                     Text(message.content)
                         .font(.body)
                         .foregroundColor(message.isIncoming ? .primary : .white)
