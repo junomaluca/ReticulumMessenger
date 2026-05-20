@@ -84,19 +84,21 @@ final class TelemetryService: NSObject, ObservableObject {
 
     // MARK: - Peer Location Management
 
-    func updatePeerLocation(hash: Data, latitude: Double, longitude: Double, timestamp: Date = Date()) {
+    func updatePeerLocation(hash: Data, latitude: Double, longitude: Double, displayName: String? = nil, timestamp: Date = Date()) {
         let hexHash = hash.map { String(format: "%02x", $0) }.joined()
 
         if let idx = peerLocations.firstIndex(where: { $0.peerHash == hexHash }) {
             peerLocations[idx].latitude = latitude
             peerLocations[idx].longitude = longitude
             peerLocations[idx].lastUpdate = timestamp
+            if let name = displayName { peerLocations[idx].displayName = name }
         } else {
             peerLocations.append(PeerLocation(
                 peerHash: hexHash,
                 latitude: latitude,
                 longitude: longitude,
-                lastUpdate: timestamp
+                lastUpdate: timestamp,
+                displayName: displayName
             ))
         }
     }

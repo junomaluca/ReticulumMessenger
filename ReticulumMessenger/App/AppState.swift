@@ -323,14 +323,16 @@ final class AppState: ObservableObject {
         // Announce immediately
         Task {
             let name = storageService?.loadDisplayName()
-            try? await messengerService?.announce(displayName: name)
+            let loc = telemetryService?.currentLocation
+            try? await messengerService?.announce(displayName: name, latitude: loc?.latitude, longitude: loc?.longitude)
         }
 
         autoAnnounceTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 let name = self.storageService?.loadDisplayName()
-                try? await self.messengerService?.announce(displayName: name)
+                let loc = self.telemetryService?.currentLocation
+                try? await self.messengerService?.announce(displayName: name, latitude: loc?.latitude, longitude: loc?.longitude)
             }
         }
     }
@@ -460,6 +462,27 @@ final class AppState: ObservableObject {
     private func handleAnnounce(hash: Data, name: String?, appData: String?) {
         let hexHash = hash.map { String(format: "%02x", $0) }.joined()
 
+        // Parse display name and optional location from appData.
+        // Format: "displayName" or "displayName\x1Elat,lon"
+        var displayName = name
+        if let raw = appData {
+            if let sep = raw.firstIndex(of: "\u{1E}") {
+                displayName = String(raw[raw.startIndex..<sep])
+                let locPart = String(raw[raw.index(after: sep)...])
+                let parts = locPart.split(separator: ",")
+                if parts.count == 2,
+                   let lat = Double(parts[0]),
+                   let lon = Double(parts[1]) {
+                    telemetryService?.updatePeerLocation(
+                        hash: hash, latitude: lat, longitude: lon,
+                        displayName: displayName
+                    )
+                }
+            } else {
+                displayName = raw
+            }
+        }
+
         let type: AnnounceEntry.AnnounceType
         if appData?.contains("lxmf") == true {
             type = .lxmf
@@ -473,7 +496,7 @@ final class AppState: ObservableObject {
 
         let entry = AnnounceEntry(
             hash: hexHash,
-            displayName: name,
+            displayName: displayName,
             type: type,
             timestamp: Date(),
             appData: appData,
@@ -661,7 +684,8 @@ final class AppState: ObservableObject {
         // after interfaces come online, not immediately on resume)
         if autoAnnounceEnabled {
             let name = storageService?.loadDisplayName()
-            try? await messengerService?.announce(displayName: name)
+            let loc = telemetryService?.currentLocation
+            try? await messengerService?.announce(displayName: name, latitude: loc?.latitude, longitude: loc?.longitude)
         }
     }
 

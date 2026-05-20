@@ -48,11 +48,16 @@ actor MessengerService {
 
     /// Announce presence on the network.
     /// Uses the router's existing delivery destination to avoid overwriting its callbacks.
-    func announce(displayName: String?) async throws {
+    /// When location is provided, it is encoded in appData as `name\x1Elat,lon`.
+    func announce(displayName: String?, latitude: Double? = nil, longitude: Double? = nil) async throws {
         guard let destination = await router.getDeliveryDestination() else {
             throw MessengerError.noDeliveryDestination
         }
-        let appData = displayName.map { Data($0.utf8) }
+        var payload = displayName ?? ""
+        if let lat = latitude, let lon = longitude {
+            payload += "\u{1E}\(lat),\(lon)"
+        }
+        let appData = payload.isEmpty ? nil : Data(payload.utf8)
         try await reticulum.announce(destination: destination, appData: appData)
     }
 }
