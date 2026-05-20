@@ -192,9 +192,15 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
 
                 case .waiting(let error):
                     self.status = .error("Waiting: \(error.localizedDescription)")
+                    // Resume the continuation so callers aren't stuck forever.
+                    // The interface will keep retrying via scheduleReconnect.
+                    if !resumeOnce.resume(throwing: error) {
+                        self.scheduleReconnect()
+                    }
 
                 case .cancelled:
                     self.status = .disconnected
+                    resumeOnce.resume(throwing: TCPInterfaceError.connectionFailed("Connection cancelled"))
 
                 default:
                     break

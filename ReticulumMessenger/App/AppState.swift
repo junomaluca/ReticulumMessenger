@@ -285,18 +285,19 @@ final class AppState: ObservableObject {
 
     func addTCPInterface(name: String, host: String, port: UInt16) async throws {
         guard let rns = reticulum else { return }
-        try await rns.connectTCP(name: name, host: host, port: port)
+        // connectTCP registers the interface with transport before connecting,
+        // so even if connect() fails the interface will retry in the background.
+        try? await rns.connectTCP(name: name, host: host, port: port)
         savedInterfaceConfigs.append(RNSInterfaceConfig(name: name, type: .tcpClient, host: host, port: port))
         await refreshInterfaces()
         saveCurrentInterfaces()
     }
 
     func addUDPInterface(name: String, host: String?, port: UInt16, listenPort: UInt16) async throws {
+        guard let rns = reticulum else { return }
         let udp = UDPInterface(name: name, host: host, port: port, listenPort: listenPort)
-        try await udp.connect()
-        if let rns = reticulum {
-            await rns.transport.registerInterface(udp)
-        }
+        await rns.transport.registerInterface(udp)
+        try? await udp.connect()
         savedInterfaceConfigs.append(RNSInterfaceConfig(name: name, type: .udp, host: host, port: port))
         await refreshInterfaces()
         saveCurrentInterfaces()
