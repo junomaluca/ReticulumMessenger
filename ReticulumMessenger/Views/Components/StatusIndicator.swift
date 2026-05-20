@@ -42,6 +42,7 @@ struct StatusIndicator: View {
             Text(status.label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize()
         }
     }
 }
