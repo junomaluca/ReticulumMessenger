@@ -69,6 +69,9 @@ struct ConversationsListView: View {
                 }
             }
             .searchable(text: $searchText, prompt: "Search conversations")
+            .navigationDestination(for: Conversation.self) { conversation in
+                MessageView(conversation: conversation)
+            }
         }
     }
 
@@ -129,9 +132,6 @@ struct ConversationsListView: View {
             }
         }
         .listStyle(.plain)
-        .navigationDestination(for: Conversation.self) { conversation in
-            MessageView(conversation: conversation)
-        }
     }
 
     private var emptyState: some View {

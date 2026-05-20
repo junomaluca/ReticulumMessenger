@@ -20,7 +20,7 @@ struct NewGroupView: View {
                 } header: {
                     Text("Group Info")
                 } footer: {
-                    Text("Choose a name for this group conversation.")
+                    Text("Choose a name for this group. You can add members now or later.")
                 }
 
                 Section {
@@ -62,7 +62,7 @@ struct NewGroupView: View {
     }
 
     private var isValid: Bool {
-        !groupName.trimmingCharacters(in: .whitespaces).isEmpty && selectedPeers.count >= 1
+        !groupName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private func togglePeer(_ hexHash: String) {
