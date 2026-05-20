@@ -50,18 +50,34 @@ struct InterfaceConfigView: View {
 
                 // Quick presets (only for new interfaces)
                 if !isEditing {
-                    Section {
-                        Text("The Reticulum Testnet is available at **amsterdam.connect.reticulum.network:4965**")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    Section("Quick Connect") {
+                        Button("Sideband Hub") {
+                            name = "Sideband Hub"
+                            host = "sideband.connect.reticulum.network"
+                            port = "7822"
+                            interfaceType = 0
+                        }
 
-                        Button("Use Testnet") {
-                            name = "RNS Testnet"
-                            host = "amsterdam.connect.reticulum.network"
+                        Button("MichMesh Testnet") {
+                            name = "MichMesh Testnet"
+                            host = "rns.michmesh.net"
+                            port = "7822"
+                            interfaceType = 0
+                        }
+
+                        Button("Dublin Testnet") {
+                            name = "Dublin Testnet"
+                            host = "dublin.connect.reticulum.network"
                             port = "4965"
                             interfaceType = 0
                         }
-                        .font(.callout)
+
+                        Button("BetweenTheBorders Hub") {
+                            name = "BetweenTheBorders"
+                            host = "reticulum.betweentheborders.com"
+                            port = "4242"
+                            interfaceType = 0
+                        }
                     }
                 }
             }
