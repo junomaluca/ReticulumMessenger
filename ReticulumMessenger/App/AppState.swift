@@ -3,6 +3,7 @@
 // Central app state coordinating the Reticulum stack, LXMF router, and UI.
 
 import SwiftUI
+import Combine
 import Network
 import ReticulumKit
 import LXMFKit
@@ -51,6 +52,7 @@ final class AppState: ObservableObject {
     private var rnodeScanTask: Task<Void, Never>?
     private var discoveredRNodeIds: Set<UUID> = []
     private var savedInterfaceConfigs: [RNSInterfaceConfig] = []
+    private var telemetryCancellable: AnyCancellable?
 
     // MARK: - iOS Resilience (from runcore & Columba-iOS research)
 
@@ -73,9 +75,12 @@ final class AppState: ObservableObject {
         let storage = StorageService()
         self.storageService = storage
 
-        // Initialize telemetry
+        // Initialize telemetry and forward its changes so SwiftUI views update
         let telemetry = TelemetryService()
         self.telemetryService = telemetry
+        telemetryCancellable = telemetry.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
 
         // Load saved conversations and settings
         conversations = storage.loadConversations()
