@@ -7,6 +7,8 @@ struct NewGroupView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
+    var onCreated: ((Conversation) -> Void)?
+
     @State private var groupName = ""
     @State private var selectedPeers: Set<String> = [] // hex hashes
 
@@ -93,6 +95,12 @@ struct NewGroupView: View {
     private func createGroup() {
         let members = appState.knownPeers.filter { selectedPeers.contains($0.hexHash) }
         appState.createGroupConversation(name: groupName, members: members)
+        let createdConversation = appState.conversations.first(where: { $0.isGroup && $0.displayName == groupName })
         dismiss()
+        if let conversation = createdConversation {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                onCreated?(conversation)
+            }
+        }
     }
 }

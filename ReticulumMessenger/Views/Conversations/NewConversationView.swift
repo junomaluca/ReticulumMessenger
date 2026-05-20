@@ -7,6 +7,8 @@ struct NewConversationView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
+    var onCreated: ((Conversation) -> Void)?
+
     @State private var destinationHash = ""
     @State private var displayName = ""
     @State private var showError = false
@@ -91,6 +93,12 @@ struct NewConversationView: View {
         let name = displayName.isEmpty ? nil : displayName
         appState.createConversation(with: hashData, name: name)
         dismiss()
+        // Navigate to the newly created conversation
+        if let conversation = appState.conversations.first(where: { !$0.isGroup && $0.peerHash == hashData }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                onCreated?(conversation)
+            }
+        }
     }
 
 }

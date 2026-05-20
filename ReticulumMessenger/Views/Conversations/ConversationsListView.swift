@@ -9,9 +9,10 @@ struct ConversationsListView: View {
     @State private var showNewGroup = false
     @State private var showQRCode = false
     @State private var searchText = ""
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             Group {
                 if appState.conversations.isEmpty {
                     emptyState
@@ -48,10 +49,14 @@ struct ConversationsListView: View {
                 }
             }
             .sheet(isPresented: $showNewConversation) {
-                NewConversationView()
+                NewConversationView { conversation in
+                    navigationPath.append(conversation)
+                }
             }
             .sheet(isPresented: $showNewGroup) {
-                NewGroupView()
+                NewGroupView { conversation in
+                    navigationPath.append(conversation)
+                }
             }
             .sheet(isPresented: $showQRCode) {
                 NavigationStack {
