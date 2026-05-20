@@ -2,6 +2,7 @@
 // ReticulumMessenger — InterfaceConfigView.swift
 
 import SwiftUI
+import ReticulumKit
 
 struct InterfaceConfigView: View {
     @EnvironmentObject var appState: AppState
