@@ -108,7 +108,7 @@ private struct PeerSelectionRow: View {
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 } else {
                     Image(systemName: "circle")
                         .foregroundStyle(.secondary)
