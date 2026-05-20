@@ -29,7 +29,7 @@ struct NewGroupView: View {
                             .foregroundStyle(.secondary)
                             .font(.subheadline)
                     } else {
-                        ForEach(appState.knownPeers) { peer in
+                        ForEach(appState.knownPeers, id: \.destinationHash) { peer in
                             Button {
                                 togglePeer(peer.hexHash)
                             } label: {
