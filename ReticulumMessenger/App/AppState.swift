@@ -57,6 +57,10 @@ final class AppState: ObservableObject {
     private var savedInterfaceConfigs: [RNSInterfaceConfig] = []
     private var telemetryCancellable: AnyCancellable?
 
+    /// Peers discovered via announce callbacks (keyed by destination hash).
+    /// Kept separate so the periodic LXMF router refresh doesn't overwrite them.
+    private var announceDiscoveredPeers: [Data: PeerInfo] = [:]
+
     // MARK: - iOS Resilience (from runcore & Columba-iOS research)
 
     /// Network path monitor — detects connectivity changes (WiFi ↔ cellular, etc.)
@@ -605,7 +609,6 @@ final class AppState: ObservableObject {
         // Parse display name and optional location from appData.
         // Format: "displayName" or "displayName\x1Elat,lon"
         var displayName = name
-        var hasLocation = false
         if let raw = appData {
             if let sep = raw.firstIndex(of: "\u{1E}") {
                 displayName = String(raw[raw.startIndex..<sep])
@@ -614,7 +617,6 @@ final class AppState: ObservableObject {
                 if parts.count == 2,
                    let lat = Double(parts[0]),
                    let lon = Double(parts[1]) {
-                    hasLocation = true
                     telemetryService?.updatePeerLocation(
                         hash: hash, latitude: lat, longitude: lon,
                         displayName: displayName
@@ -625,25 +627,21 @@ final class AppState: ObservableObject {
             }
         }
 
-        // If the peer didn't include location but we have our own location,
-        // still register them with a default so they appear in the known
-        // peers list (even if not on the map).
-        if !hasLocation {
-            // Update as a known peer without map placement
-            if let existing = knownPeers.firstIndex(where: { $0.destinationHash == hash }) {
-                // Already known — just update last seen
-                knownPeers[existing] = PeerInfo(
-                    destinationHash: hash,
-                    displayName: displayName ?? knownPeers[existing].displayName,
-                    lastSeen: Date()
-                )
-            } else {
-                knownPeers.append(PeerInfo(
-                    destinationHash: hash,
-                    displayName: displayName ?? hexHash,
-                    lastSeen: Date()
-                ))
-            }
+        // Always register as a known peer (announce-discovered).
+        // This dict is merged with LXMF router peers in periodic updates
+        // instead of being overwritten.
+        let peerInfo = PeerInfo(
+            destinationHash: hash,
+            displayName: displayName ?? hexHash,
+            lastSeen: Date()
+        )
+        announceDiscoveredPeers[hash] = peerInfo
+
+        // Update knownPeers immediately for UI responsiveness
+        if let existing = knownPeers.firstIndex(where: { $0.destinationHash == hash }) {
+            knownPeers[existing] = peerInfo
+        } else {
+            knownPeers.append(peerInfo)
         }
 
         // Announce type: all ReticulumMessenger announces are LXMF since
@@ -733,8 +731,24 @@ final class AppState: ObservableObject {
                 try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
                 await refreshInterfaces()
                 if let router = lxmRouter {
-                    let peers = await router.knownPeers()
-                    knownPeers = peers.map { PeerInfo(from: $0) }
+                    // Merge LXMF router peers with announce-discovered peers
+                    // so announces don't get wiped every refresh cycle.
+                    let routerPeers = await router.knownPeers()
+                    var merged: [Data: PeerInfo] = announceDiscoveredPeers
+                    for rp in routerPeers {
+                        let pi = PeerInfo(from: rp)
+                        // Router info takes priority for display name if present
+                        if let existing = merged[pi.destinationHash] {
+                            merged[pi.destinationHash] = PeerInfo(
+                                destinationHash: pi.destinationHash,
+                                displayName: pi.displayName.isEmpty ? existing.displayName : pi.displayName,
+                                lastSeen: max(pi.lastSeen, existing.lastSeen)
+                            )
+                        } else {
+                            merged[pi.destinationHash] = pi
+                        }
+                    }
+                    knownPeers = Array(merged.values).sorted { $0.lastSeen > $1.lastSeen }
                 }
                 if let rns = reticulum {
                     let stats = await rns.statistics()
@@ -743,7 +757,7 @@ final class AppState: ObservableObject {
                     } else {
                         networkStatus = .connecting
                     }
-                    packetDiagnostics = "rx:\(stats.packetsReceived) fail:\(stats.packetsParseFailed) dup:\(stats.packetsDeduplicated) ann:\(stats.announcesProcessed)"
+                    packetDiagnostics = "rx:\(stats.packetsReceived) fail:\(stats.packetsParseFailed) dup:\(stats.packetsDeduplicated) ann-in:\(stats.announcesProcessed) ann-out:\(stats.announcesSent) pathReq:\(stats.pathRequestsReceived) pathRsp:\(stats.pathResponsesSent) dest:\(stats.registeredDestinations) paths:\(stats.knownPaths)"
                 }
 
                 // Update RNode stats

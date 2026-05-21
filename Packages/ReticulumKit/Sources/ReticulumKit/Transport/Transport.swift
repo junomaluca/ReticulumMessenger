@@ -54,6 +54,9 @@ public actor RNSTransport {
     public private(set) var packetsParseFailed: UInt64 = 0
     public private(set) var packetsDeduplicated: UInt64 = 0
     public private(set) var announcesProcessed: UInt64 = 0
+    public private(set) var pathRequestsReceived: UInt64 = 0
+    public private(set) var pathResponsesSent: UInt64 = 0
+    public private(set) var announcesSent: UInt64 = 0
 
     /// Pending path requests.
     private var pendingPathRequests: [Data: Date] = [:]
@@ -98,6 +101,15 @@ public actor RNSTransport {
 
     /// Simple announce callbacks: (hash, displayName, appData).
     private var simpleAnnounceCallbacks: [@Sendable (Data, String?, String?) -> Void] = []
+
+    /// Local identity hash (set by Reticulum on start). Used in path requests
+    /// to match the Python reference format: data = destHash + requestorHash.
+    private var localIdentityHash: Data?
+
+    /// Set the local identity hash for path request data.
+    public func setLocalIdentityHash(_ hash: Data) {
+        localIdentityHash = hash
+    }
 
     /// Register a network interface.
     public func addInterface(_ interface: any RNSInterface) {
@@ -200,14 +212,23 @@ public actor RNSTransport {
 
         pendingPathRequests[destinationHash] = Date()
 
-        // Create a path request packet using the protocol-compatible destination hash.
+        // Python reference path request format:
+        //   destination = well-known "rnstransport.path.request" PLAIN hash
+        //   data = destinationHash(16) + requestorIdentityHash(16)
+        //   context = NONE (Python identifies path requests by destination hash, not context)
+        var requestData = Data()
+        requestData.append(destinationHash)
+        if let idHash = localIdentityHash {
+            requestData.append(idHash)
+        }
+
         let packet = RNSPacket(
             propagationType: .broadcast,
             destinationType: .plain,
             packetType: .data,
             destinationHash: Self.pathRequestDestinationHash,
-            context: .pathResponse,
-            data: destinationHash
+            context: .none,
+            data: requestData
         )
 
         try await broadcastPacket(packet)
@@ -272,6 +293,10 @@ public actor RNSTransport {
             try await broadcastPacket(packet)
         }
 
+        if packet.packetType == .announce {
+            announcesSent += 1
+        }
+
         // Create receipt for data packets
         if packet.packetType == .data {
             let receipt = RNSPacketReceipt(
@@ -329,24 +354,25 @@ public actor RNSTransport {
     // MARK: - Packet Handlers
 
     private func handleDataPacket(_ packet: RNSPacket, from interfaceName: String) {
-        // Both path requests and path responses use context .pathResponse (0x0B).
-        // Differentiate by checking the destination hash:
-        // - If destHash == pathRequestDestinationHash → incoming PATH REQUEST
-        // - Otherwise → incoming PATH RESPONSE
+        // Path REQUEST detection: Python Reticulum identifies path requests purely
+        // by destination hash matching the well-known path request destination,
+        // regardless of context byte (may be NONE, PATH_RESPONSE, etc.).
+        if packet.destinationHash == Self.pathRequestDestinationHash &&
+           packet.data.count >= RNS.truncatedHashLength {
+            handlePathRequest(packet, from: interfaceName)
+            return
+        }
+
+        // Path RESPONSE detection: context == PATH_RESPONSE (0x0B) and
+        // destination hash is the actual destination being sought.
         if packet.context == .pathResponse && packet.data.count >= RNS.truncatedHashLength {
-            if packet.destinationHash == Self.pathRequestDestinationHash {
-                // Incoming PATH REQUEST — another node is looking for a destination.
-                handlePathRequest(packet, from: interfaceName)
-            } else {
-                // Incoming PATH RESPONSE — someone answered our path request.
-                let respondedHash = Data(packet.data.prefix(RNS.truncatedHashLength))
-                registerPath(
-                    destinationHash: respondedHash,
-                    nextHop: nil,
-                    interfaceName: interfaceName,
-                    hops: packet.hops
-                )
-            }
+            let respondedHash = Data(packet.data.prefix(RNS.truncatedHashLength))
+            registerPath(
+                destinationHash: respondedHash,
+                nextHop: nil,
+                interfaceName: interfaceName,
+                hops: packet.hops
+            )
             return
         }
 
@@ -366,6 +392,7 @@ public actor RNSTransport {
     /// (matching the Python reference behavior). If transport mode is
     /// enabled and we have a cached path, forward a path response.
     private func handlePathRequest(_ packet: RNSPacket, from interfaceName: String) {
+        pathRequestsReceived += 1
         let requestedHash = Data(packet.data.prefix(RNS.truncatedHashLength))
 
         // Check if we host this destination locally
@@ -375,6 +402,7 @@ public actor RNSTransport {
             // identity (public keys) needed for encryption and establishes the path.
             if let announceData = try? destination.announce() {
                 let announcePacket = RNSPacket.announce(from: destination, data: announceData)
+                pathResponsesSent += 1
                 Task { [weak self] in
                     _ = try? await self?.sendPacket(announcePacket)
                 }
@@ -633,10 +661,14 @@ public actor RNSTransport {
             knownPaths: pathTable.count,
             activeLinks: activeLinks.count,
             pendingReceipts: pendingReceipts.count,
+            registeredDestinations: destinations.count,
             packetsReceived: packetsReceived,
             packetsParseFailed: packetsParseFailed,
             packetsDeduplicated: packetsDeduplicated,
-            announcesProcessed: announcesProcessed
+            announcesProcessed: announcesProcessed,
+            announcesSent: announcesSent,
+            pathRequestsReceived: pathRequestsReceived,
+            pathResponsesSent: pathResponsesSent
         )
     }
 }
@@ -649,8 +681,12 @@ public struct TransportStatistics: Sendable {
     public let knownPaths: Int
     public let activeLinks: Int
     public let pendingReceipts: Int
+    public let registeredDestinations: Int
     public let packetsReceived: UInt64
     public let packetsParseFailed: UInt64
     public let packetsDeduplicated: UInt64
     public let announcesProcessed: UInt64
+    public let announcesSent: UInt64
+    public let pathRequestsReceived: UInt64
+    public let pathResponsesSent: UInt64
 }

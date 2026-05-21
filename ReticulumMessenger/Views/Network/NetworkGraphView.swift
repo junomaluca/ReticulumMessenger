@@ -2,6 +2,7 @@
 // ReticulumMessenger — NetworkGraphView.swift
 
 import SwiftUI
+import CoreLocation
 
 /// Interactive mesh network topology visualization.
 struct NetworkGraphView: View {
@@ -11,6 +12,7 @@ struct NetworkGraphView: View {
     @State private var animationPhase: CGFloat = 0
     @State private var selectedNode: GraphNode?
     @State private var canvasSize: CGSize = .zero
+    @State private var geocodedLocations: [String: String] = [:]  // peerHash -> "City, Country"
 
     var body: some View {
         ZStack {
@@ -192,6 +194,8 @@ struct NetworkGraphView: View {
             let stableValue = peer.hexHash.prefix(4).unicodeScalars.reduce(0) { acc, c in acc &* 31 &+ Int(c.value) }
             let hashOffset = CGFloat(abs(stableValue) % 256) / 255.0 * 0.06 - 0.03
             let radius: CGFloat = 0.3 + hashOffset
+            // Check if we have location data for this peer
+            let peerLoc = appState.telemetryService?.peerLocations.first { $0.peerHash == peer.hexHash }
             let node = GraphNode(
                 id: "peer-\(peer.hexHash)",
                 label: peer.displayName.isEmpty ? peer.shortHash : peer.displayName,
@@ -199,7 +203,10 @@ struct NetworkGraphView: View {
                 isActive: true,
                 x: 0.5 + cos(angle) * radius,
                 y: 0.45 + sin(angle) * radius * 1.2,
-                color: .orange
+                color: .orange,
+                peerHash: peer.hexHash,
+                latitude: peerLoc?.latitude,
+                longitude: peerLoc?.longitude
             )
             newNodes.append(node)
 
@@ -255,7 +262,7 @@ struct NetworkGraphView: View {
     }
 
     private func nodeDetail(_ node: GraphNode) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Circle().fill(node.color).frame(width: 12, height: 12)
                 Text(node.label).font(.headline)
@@ -273,10 +280,76 @@ struct NetworkGraphView: View {
                     .font(.caption)
                     .foregroundStyle(.green)
             }
+
+            // Peer-specific info
+            if let hash = node.peerHash {
+                Divider()
+                HStack(spacing: 4) {
+                    Image(systemName: "number")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(hash)
+                        .font(.system(size: 10))
+                        .monospaced()
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+
+            // Location info
+            if let lat = node.latitude, let lon = node.longitude {
+                HStack(spacing: 4) {
+                    Image(systemName: "location.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                    Text(String(format: "%.4f, %.4f", lat, lon))
+                        .font(.system(size: 10))
+                        .monospaced()
+                }
+                if let location = geocodedLocations[node.peerHash ?? ""] {
+                    HStack(spacing: 4) {
+                        Image(systemName: "map.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                        Text(location)
+                            .font(.caption)
+                    }
+                }
+            } else if node.type == .peer {
+                HStack(spacing: 4) {
+                    Image(systemName: "location.slash")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("No location shared")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding()
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
         .padding()
+        .onAppear {
+            reverseGeocodeIfNeeded(node)
+        }
+    }
+
+    private func reverseGeocodeIfNeeded(_ node: GraphNode) {
+        guard let hash = node.peerHash,
+              let lat = node.latitude,
+              let lon = node.longitude,
+              geocodedLocations[hash] == nil else { return }
+
+        let location = CLLocation(latitude: lat, longitude: lon)
+        CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
+            if let pm = placemarks?.first {
+                let parts = [pm.locality, pm.administrativeArea, pm.country].compactMap { $0 }
+                let display = parts.joined(separator: ", ")
+                Task { @MainActor in
+                    geocodedLocations[hash] = display.isEmpty ? nil : display
+                }
+            }
+        }
     }
 }
 
@@ -290,6 +363,9 @@ struct GraphNode: Identifiable {
     var x: CGFloat
     var y: CGFloat
     let color: Color
+    var peerHash: String?
+    var latitude: Double?
+    var longitude: Double?
 
     enum NodeType: String {
         case local, interface, peer, transport

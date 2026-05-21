@@ -53,6 +53,9 @@ public actor Reticulum {
         let identity = try await identityStorage.loadOrCreate()
         self.localIdentity = identity
 
+        // Provide local identity hash to transport for path request formatting
+        await transport.setLocalIdentityHash(identity.hash)
+
         // Load known identities cache
         try? await identityStorage.loadKnownIdentities()
 

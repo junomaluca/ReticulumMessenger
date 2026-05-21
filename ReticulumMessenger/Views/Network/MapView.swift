@@ -50,6 +50,31 @@ struct MeshMapView: View {
                     MapUserLocationButton()
                 }
 
+                // Empty state overlay when peers exist but none share location
+                if peerLocations.isEmpty && !appState.knownPeers.isEmpty {
+                    VStack(spacing: 12) {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            Image(systemName: "location.slash")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                            Text("No peers sharing location")
+                                .font(.subheadline.bold())
+                            Text("\(appState.knownPeers.count) peer\(appState.knownPeers.count == 1 ? "" : "s") discovered on the mesh but none are broadcasting GPS coordinates.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal)
+
+                        // Compact peer list
+                        discoveredPeersList
+                        Spacer()
+                    }
+                }
+
                 // Overlay info
                 VStack {
                     Spacer()
@@ -122,6 +147,44 @@ struct MeshMapView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(.ultraThinMaterial, in: Capsule())
+    }
+
+    private var discoveredPeersList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(appState.knownPeers.prefix(8)), id: \.destinationHash) { peer in
+                HStack(spacing: 8) {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(peer.displayName.isEmpty ? peer.shortHash : peer.displayName)
+                            .font(.caption.bold())
+                        Text(peer.shortHash)
+                            .font(.system(size: 9))
+                            .monospaced()
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(peer.lastSeen, style: .relative)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                if peer.destinationHash != appState.knownPeers.prefix(8).last?.destinationHash {
+                    Divider().padding(.leading, 32)
+                }
+            }
+            if appState.knownPeers.count > 8 {
+                Text("+\(appState.knownPeers.count - 8) more")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+            }
+        }
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
     }
 
     private var locationSharingBadge: some View {
