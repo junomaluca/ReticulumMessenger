@@ -63,6 +63,32 @@ public actor LXMRouter {
     public private(set) var sendFailures: UInt64 = 0
     public private(set) var lastSendError: String?
 
+    /// A single entry in the per-message diagnostic log.
+    public struct LogEntry: Sendable {
+        public enum Direction: String, Sendable { case send, recv }
+        public enum Outcome: String, Sendable { case ok, failed }
+        public let timestamp: Date
+        public let direction: Direction
+        public let outcome: Outcome
+        public let peerHex: String
+        public let bytes: Int
+        public let title: String?
+        public let attachmentCount: Int
+        public let note: String?
+    }
+
+    /// Ring buffer of recent message events (sends + receives), newest last.
+    /// Surfaced in DiagnosticsService so per-message failures are visible.
+    public private(set) var messageLog: [LogEntry] = []
+    private let messageLogMax = 30
+
+    private func appendLog(_ entry: LogEntry) {
+        messageLog.append(entry)
+        if messageLog.count > messageLogMax {
+            messageLog.removeFirst(messageLog.count - messageLogMax)
+        }
+    }
+
     /// The app name used for LXMF destinations.
     public static let appName = "lxmf"
     public static let deliveryAspect = "delivery"
@@ -190,11 +216,22 @@ public actor LXMRouter {
 
         // Try direct delivery first
         sendAttempts += 1
+        let serializedSize = msg.serialize().count
         do {
             try await deliverDirect(msg)
             msg.state = .sent
             sendSuccesses += 1
             outboundQueue[msg.id] = msg
+            appendLog(LogEntry(
+                timestamp: Date(),
+                direction: .send,
+                outcome: .ok,
+                peerHex: msg.destinationHash.map { String(format: "%02x", $0) }.joined(),
+                bytes: serializedSize,
+                title: msg.title,
+                attachmentCount: msg.attachments.count,
+                note: nil
+            ))
             notifyDeliveryUpdate(DeliveryUpdate(
                 messageId: msg.id,
                 state: .sent,
@@ -203,6 +240,16 @@ public actor LXMRouter {
         } catch {
             sendFailures += 1
             lastSendError = error.localizedDescription
+            appendLog(LogEntry(
+                timestamp: Date(),
+                direction: .send,
+                outcome: .failed,
+                peerHex: msg.destinationHash.map { String(format: "%02x", $0) }.joined(),
+                bytes: serializedSize,
+                title: msg.title,
+                attachmentCount: msg.attachments.count,
+                note: error.localizedDescription
+            ))
             // Fall back to propagation if configured
             if let propNode = propagationNode {
                 do {
@@ -290,10 +337,31 @@ public actor LXMRouter {
         do {
             let message = try LXMessage.deserialize(plaintext)
             messagesDelivered += 1
+            appendLog(LogEntry(
+                timestamp: Date(),
+                direction: .recv,
+                outcome: .ok,
+                peerHex: message.sourceHash.map { String(format: "%02x", $0) }.joined(),
+                bytes: plaintext.count,
+                title: message.title,
+                attachmentCount: message.attachments.count,
+                note: nil
+            ))
             dispatchReceivedMessage(message)
         } catch {
             deserializeFailures += 1
-            lastDeserializeError = "\(error.localizedDescription) (pkt \(packet.data.count)B, plain \(plaintext.count)B, first: \(plaintext.prefix(4).map { String(format: "%02x", $0) }.joined()))"
+            let firstBytes = plaintext.prefix(4).map { String(format: "%02x", $0) }.joined()
+            lastDeserializeError = "\(error.localizedDescription) (pkt \(packet.data.count)B, plain \(plaintext.count)B, first: \(firstBytes))"
+            appendLog(LogEntry(
+                timestamp: Date(),
+                direction: .recv,
+                outcome: .failed,
+                peerHex: "(unknown)",
+                bytes: plaintext.count,
+                title: nil,
+                attachmentCount: 0,
+                note: "deserialize failed; first=\(firstBytes); \(error.localizedDescription)"
+            ))
         }
     }
 

@@ -255,6 +255,12 @@ struct NetworkStatusView: View {
                     } label: {
                         Label("RNode Device", systemImage: "antenna.radiowaves.left.and.right")
                     }
+
+                    NavigationLink {
+                        TestLabView()
+                    } label: {
+                        Label("Test Lab", systemImage: "testtube.2")
+                    }
                 }
 
                 // Known Peers

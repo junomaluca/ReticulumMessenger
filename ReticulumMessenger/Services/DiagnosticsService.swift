@@ -5,6 +5,7 @@
 import Foundation
 import UIKit
 import ReticulumKit
+import LXMFKit
 
 enum DiagnosticsService {
 
@@ -105,6 +106,19 @@ enum DiagnosticsService {
         if !appState.probeResult.isEmpty {
             out += "\n=== Last Probe ===\n"
             out += appState.probeResult + "\n"
+        }
+
+        if !appState.recentMessageLog.isEmpty {
+            out += "\n=== LXMF Message Log (newest last) ===\n"
+            for entry in appState.recentMessageLog {
+                let ts = isoFormatter.string(from: entry.timestamp)
+                let dir = entry.direction.rawValue.uppercased()
+                let outcome = entry.outcome.rawValue.uppercased()
+                let title = entry.title.map { " title=\"\($0)\"" } ?? ""
+                let attachments = entry.attachmentCount > 0 ? " att=\(entry.attachmentCount)" : ""
+                let note = entry.note.map { " note=\($0)" } ?? ""
+                out += "  \(ts) \(dir) \(outcome) peer=\(String(entry.peerHex.prefix(16)))… bytes=\(entry.bytes)\(title)\(attachments)\(note)\n"
+            }
         }
 
         if !appState.recentOutboundByInterface.isEmpty {
