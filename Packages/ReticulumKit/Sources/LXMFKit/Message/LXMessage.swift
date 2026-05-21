@@ -30,17 +30,27 @@ public struct LXMessage: Identifiable, Sendable {
         case received
     }
 
-    /// Standard LXMF field identifiers.
+    /// Standard LXMF field identifiers, matching the Python reference
+    /// (`LXMF.FIELD_*`). The body itself carries `timestamp`, `title`, and
+    /// `content` as positional elements of the outer msgpack array — the
+    /// values below are only used inside the `fields` dict for OPTIONAL
+    /// metadata and binary attachments.
     public enum FieldType: UInt8, Sendable {
-        case content = 0x01
-        case title = 0x02
-        case timestamp = 0x03
-        case fileAttachment = 0x04
-        case image = 0x05
-        case audio = 0x06
-        case sourceName = 0x07
-        case destinationName = 0x08
-        case commands = 0x09
+        case embeddedLXMS     = 0x01
+        case telemetry        = 0x02
+        case telemetryStream  = 0x03
+        case iconAppearance   = 0x04
+        case fileAttachments  = 0x05
+        case image            = 0x06
+        case audio            = 0x07
+        case thread           = 0x08
+        case commands         = 0x09
+        case results          = 0x0A
+        case group            = 0x0B
+        case ticket           = 0x0C
+        case event            = 0x0D
+        case rnrRefs          = 0x0E
+        case renderer         = 0x0F
     }
 
     // MARK: - Properties
@@ -143,74 +153,66 @@ public struct LXMessage: Identifiable, Sendable {
 
     // MARK: - Serialization
 
-    /// Serialize this message to LXMF wire format (MessagePack).
+    /// Serialize this message into the Python LXMF wire format:
+    /// `dst_hash(16) || src_hash(16) || signature(64) || msgpack([ts, title, content, fields])`
+    /// The signature placeholder is zero-filled for now — Swift receivers
+    /// (and the current Python receivers used for testing) do not verify it,
+    /// and full LXMF signing of the inner body is a separate feature that
+    /// also requires identity ratchet/stamp logic.
     public func serialize() -> Data {
+        // Build the fields dict (binary attachments + caller-provided custom fields).
+        // Display names and timestamp live in the positional msgpack array, not here.
         var fieldMap: [(MessagePackValue, MessagePackValue)] = []
-
-        // Content
-        fieldMap.append((.uint(UInt64(FieldType.content.rawValue)), .string(content)))
-
-        // Title
-        if let title = title {
-            fieldMap.append((.uint(UInt64(FieldType.title.rawValue)), .string(title)))
-        }
-
-        // Timestamp
-        let ts = Int64(timestamp.timeIntervalSince1970)
-        fieldMap.append((.uint(UInt64(FieldType.timestamp.rawValue)), .int(ts)))
-
-        // Source name
-        if let name = sourceName {
-            fieldMap.append((.uint(UInt64(FieldType.sourceName.rawValue)), .string(name)))
-        }
-
-        // Destination name
-        if let name = destinationName {
-            fieldMap.append((.uint(UInt64(FieldType.destinationName.rawValue)), .string(name)))
-        }
-
-        // File attachments
         for attachment in attachments {
+            let mime = attachment.mimeType.lowercased()
+            // Route by MIME type onto the official LXMF field IDs.
+            let fieldId: UInt8
+            if mime.hasPrefix("image/")      { fieldId = FieldType.image.rawValue }
+            else if mime.hasPrefix("audio/") { fieldId = FieldType.audio.rawValue }
+            else                              { fieldId = FieldType.fileAttachments.rawValue }
             let attArray: MessagePackValue = .array([
                 .string(attachment.name),
                 .binary(attachment.data),
                 .string(attachment.mimeType)
             ])
-            fieldMap.append((.uint(UInt64(FieldType.fileAttachment.rawValue)), attArray))
+            fieldMap.append((.uint(UInt64(fieldId)), attArray))
         }
-
-        // Additional fields
         for (key, value) in fields {
             fieldMap.append((.uint(UInt64(key)), value))
         }
 
-        // LXMF message format: [source_hash, dest_hash, method, fields_map]
-        let message: MessagePackValue = .array([
-            .binary(sourceHash),
-            .binary(destinationHash),
-            .uint(UInt64(method.rawValue)),
+        // Positional msgpack body: [timestamp_float, title_bytes, content_bytes, fields_dict]
+        let titleBytes: MessagePackValue = title.map { .binary(Data($0.utf8)) } ?? .nil
+        let contentBytes: MessagePackValue = .binary(Data(content.utf8))
+        let body: MessagePackValue = .array([
+            .double(timestamp.timeIntervalSince1970),
+            titleBytes,
+            contentBytes,
             .map(fieldMap)
         ])
+        let packedBody = MessagePackEncoder.encode(body)
 
-        return MessagePackEncoder.encode(message)
+        var data = Data()
+        data.append(destinationHash.prefix(16))
+        data.append(sourceHash.prefix(16))
+        data.append(Data(count: 64))      // 64-byte signature placeholder
+        data.append(packedBody)
+        return data
     }
 
-    /// Deserialize an LXMF message from wire format.
-    /// Supports both the Swift format and the Python LXMF reference format.
-    ///
-    /// Swift format: msgpack([src_hash, dst_hash, method, fields_map])
-    /// Python format: dest_hash(16) + src_hash(16) + signature(64) + msgpack([timestamp, title, content, fields, ?stamp])
+    /// Deserialize an LXMF message body. The canonical wire format is the
+    /// Python LXMF one:
+    /// `dest_hash(16) || src_hash(16) || signature(64) || msgpack([ts, title, content, fields, ?stamp])`.
+    /// Older Swift-only senders used a wholly-different msgpack array as the
+    /// entire body — that format is still accepted for backwards compatibility
+    /// with messages already on disk and any legacy in-flight traffic.
     public static func deserialize(_ data: Data) throws -> LXMessage {
-        // Try Swift format first (entire data is a msgpack array starting with binary)
-        if let msg = try? deserializeSwiftFormat(data) {
-            return msg
-        }
-
-        // Try Python LXMF reference format (96-byte header + msgpack payload)
         if let msg = try? deserializePythonFormat(data) {
             return msg
         }
-
+        if let msg = try? deserializeSwiftFormat(data) {
+            return msg
+        }
         throw LXMFError.invalidFormat
     }
 
@@ -238,24 +240,27 @@ public struct LXMessage: Identifiable, Sendable {
         var fields: [UInt8: MessagePackValue] = [:]
         var attachments: [LXMFAttachment] = []
 
+        // Legacy Swift-format field IDs (kept for compat with on-disk messages
+        // serialised by earlier app builds). These IDs collide with the
+        // official LXMF FIELD_* constants and are NOT used for new sends.
         for (key, val) in fieldPairs {
             guard let keyNum = key.intValue else { continue }
             let fieldType = UInt8(keyNum)
 
             switch fieldType {
-            case FieldType.content.rawValue:
+            case 0x01:                                       // legacy content
                 content = val.stringValue ?? ""
-            case FieldType.title.rawValue:
+            case 0x02:                                       // legacy title
                 title = val.stringValue
-            case FieldType.timestamp.rawValue:
+            case 0x03:                                       // legacy timestamp
                 if let ts = val.intValue {
                     timestamp = Date(timeIntervalSince1970: TimeInterval(ts))
                 }
-            case FieldType.sourceName.rawValue:
+            case 0x07:                                       // legacy sourceName
                 sourceName = val.stringValue
-            case FieldType.destinationName.rawValue:
+            case 0x08:                                       // legacy destinationName
                 destinationName = val.stringValue
-            case FieldType.fileAttachment.rawValue:
+            case 0x04:                                       // legacy fileAttachment
                 if let att = LXMFAttachment.fromMessagePack(val) {
                     attachments.append(att)
                 }
@@ -342,11 +347,9 @@ public struct LXMessage: Identifiable, Sendable {
                 guard let keyNum = key.intValue else { continue }
                 let fieldType = UInt8(keyNum)
                 switch fieldType {
-                case FieldType.sourceName.rawValue:
-                    sourceName = val.stringValue
-                case FieldType.destinationName.rawValue:
-                    destinationName = val.stringValue
-                case FieldType.fileAttachment.rawValue:
+                case FieldType.fileAttachments.rawValue,
+                     FieldType.image.rawValue,
+                     FieldType.audio.rawValue:
                     if let att = LXMFAttachment.fromMessagePack(val) {
                         attachments.append(att)
                     }
