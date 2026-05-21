@@ -32,6 +32,7 @@ final class AppState: ObservableObject {
 
     // Diagnostics
     @Published var packetDiagnostics: String = ""
+    @Published var probeResult: String = ""
 
     // Settings
     @Published var autoAnnounceEnabled = false
@@ -530,6 +531,28 @@ final class AppState: ObservableObject {
         await initialize()
     }
 
+    // MARK: - Network Diagnostics
+
+    /// Probe a peer's path to diagnose delivery issues.
+    func probePeer(_ destinationHash: Data) async {
+        guard let rns = reticulum else {
+            probeResult = "Reticulum not initialized"
+            return
+        }
+        probeResult = "Probing..."
+        let result = await rns.transport.probePath(to: destinationHash)
+        probeResult = result
+    }
+
+    /// Probe the first known peer (quick diagnostic).
+    func probeFirstPeer() async {
+        guard let peer = knownPeers.first else {
+            probeResult = "No known peers to probe"
+            return
+        }
+        await probePeer(peer.destinationHash)
+    }
+
     // MARK: - Refresh
 
     func refreshNetworkStatus() async {
@@ -757,7 +780,34 @@ final class AppState: ObservableObject {
                     } else {
                         networkStatus = .connecting
                     }
-                    packetDiagnostics = "rx:\(stats.packetsReceived) fail:\(stats.packetsParseFailed) dup:\(stats.packetsDeduplicated) ann-in:\(stats.announcesProcessed) ann-out:\(stats.announcesSent) pathReq:\(stats.pathRequestsReceived) pathRsp:\(stats.pathResponsesSent) dest:\(stats.registeredDestinations) paths:\(stats.knownPaths)"
+                    var diag = "IN  rx:\(stats.packetsReceived) fail:\(stats.packetsParseFailed) dup:\(stats.packetsDeduplicated)"
+                    diag += "\nANN in:\(stats.announcesProcessed) out:\(stats.announcesSent)"
+                    diag += "\nPATH req-in:\(stats.pathRequestsReceived) rsp-out:\(stats.pathResponsesSent) req-out:\(stats.pathRequestsSent)"
+                    diag += "\n     dest:\(stats.registeredDestinations) known:\(stats.knownPaths)"
+                    diag += "\nOUT tx:\(stats.packetsSent) err:\(stats.sendErrors)"
+                    diag += "\nMSG local:\(stats.dataPacketsForLocal) unmatched:\(stats.dataPacketsUnmatched)"
+                    if let sendErr = stats.lastSendError {
+                        diag += "\ntx-err: \(sendErr)"
+                    }
+                    if let router = lxmRouter {
+                        let lxSendAttempts = await router.sendAttempts
+                        let lxSendOk = await router.sendSuccesses
+                        let lxSendFail = await router.sendFailures
+                        let lxSendErr = await router.lastSendError
+                        let lxPkts = await router.packetsReceived
+                        let lxFail = await router.deserializeFailures
+                        let lxOk = await router.messagesDelivered
+                        let lxErr = await router.lastDeserializeError
+                        diag += "\nLXMF send:\(lxSendAttempts) ok:\(lxSendOk) fail:\(lxSendFail)"
+                        if let err = lxSendErr {
+                            diag += "\nsend-err: \(err)"
+                        }
+                        diag += "\nLXMF recv:\(lxPkts) ok:\(lxOk) fail:\(lxFail)"
+                        if let err = lxErr {
+                            diag += "\nrecv-err: \(err)"
+                        }
+                    }
+                    packetDiagnostics = diag
                 }
 
                 // Update RNode stats
@@ -939,7 +989,7 @@ final class AppState: ObservableObject {
         if !defaults.bool(forKey: "meshDefaultsV2Applied") {
             defaults.set(true, forKey: "autoAnnounce")
             defaults.set(true, forKey: "locationSharing")
-            defaults.set(true, forKey: "transportMode")
+            defaults.set(false, forKey: "transportMode")
             defaults.set(true, forKey: "meshDefaultsV2Applied")
         }
 
@@ -947,7 +997,7 @@ final class AppState: ObservableObject {
         defaults.register(defaults: [
             "autoAnnounce": true,
             "locationSharing": true,
-            "transportMode": true,
+            "transportMode": false,
             "propagationNode": false
         ])
 

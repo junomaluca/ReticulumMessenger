@@ -41,6 +41,20 @@ public enum MessagePackValue: Sendable, Equatable {
         return nil
     }
 
+    public var doubleValue: Double? {
+        if case .double(let d) = self { return d }
+        if case .float(let f) = self { return Double(f) }
+        if case .uint(let u) = self { return Double(u) }
+        if case .int(let i) = self { return Double(i) }
+        return nil
+    }
+
+    public var floatValue: Float? {
+        if case .float(let f) = self { return f }
+        if case .double(let d) = self { return Float(d) }
+        return nil
+    }
+
     public var boolValue: Bool? {
         if case .bool(let b) = self { return b }
         return nil

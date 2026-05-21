@@ -84,6 +84,24 @@ struct NetworkStatusView: View {
                     }
                 }
 
+                // Network Probe
+                Section("Diagnostics") {
+                    Button {
+                        Task {
+                            await appState.probeFirstPeer()
+                        }
+                    } label: {
+                        Label("Probe First Peer", systemImage: "stethoscope")
+                    }
+                    .disabled(appState.knownPeers.isEmpty)
+
+                    if !appState.probeResult.isEmpty {
+                        Text(appState.probeResult)
+                            .font(.caption)
+                            .monospaced()
+                    }
+                }
+
                 // Quick Links
                 Section("Tools") {
                     NavigationLink {

@@ -57,6 +57,12 @@ public actor RNSTransport {
     public private(set) var pathRequestsReceived: UInt64 = 0
     public private(set) var pathResponsesSent: UInt64 = 0
     public private(set) var announcesSent: UInt64 = 0
+    public private(set) var dataPacketsForLocal: UInt64 = 0
+    public private(set) var dataPacketsUnmatched: UInt64 = 0
+    public private(set) var packetsSent: UInt64 = 0
+    public private(set) var pathRequestsSent: UInt64 = 0
+    public private(set) var sendErrors: UInt64 = 0
+    public private(set) var lastSendError: String?
 
     /// Pending path requests.
     private var pendingPathRequests: [Data: Date] = [:]
@@ -211,6 +217,7 @@ public actor RNSTransport {
         }
 
         pendingPathRequests[destinationHash] = Date()
+        pathRequestsSent += 1
 
         // Python reference path request format:
         //   destination = well-known "rnstransport.path.request" PLAIN hash
@@ -275,22 +282,25 @@ public actor RNSTransport {
     public func sendPacket(_ packet: RNSPacket) async throws -> RNSPacketReceipt? {
         let raw = packet.pack()
 
-        // Try to find a specific path
-        if let path = findPath(to: packet.destinationHash),
-           let interface = interfaces[path.interfaceName] {
-            // For directed sends over stream interfaces (TCP), the protocol
-            // MTU is not a hard limit since HDLC framing handles segmentation.
-            // Only enforce MTU for broadcast/radio where packet size matters.
-            if raw.count > RNS.mtu && !interface.isStreamInterface {
-                throw RNSPacketError.payloadTooLarge
+        do {
+            // Try to find a specific path
+            if let path = findPath(to: packet.destinationHash),
+               let interface = interfaces[path.interfaceName] {
+                if raw.count > RNS.mtu && !interface.isStreamInterface {
+                    throw RNSPacketError.payloadTooLarge
+                }
+                try await interface.send(raw)
+            } else {
+                guard raw.count <= RNS.mtu else {
+                    throw RNSPacketError.payloadTooLarge
+                }
+                try await broadcastPacket(packet)
             }
-            try await interface.send(raw)
-        } else {
-            // Broadcasting — enforce strict MTU since radio interfaces are limited
-            guard raw.count <= RNS.mtu else {
-                throw RNSPacketError.payloadTooLarge
-            }
-            try await broadcastPacket(packet)
+            packetsSent += 1
+        } catch {
+            sendErrors += 1
+            lastSendError = "\(error.localizedDescription) (dest:\(packet.destinationHash.prefix(4).map { String(format: "%02x", $0) }.joined()) type:\(packet.packetType))"
+            throw error
         }
 
         if packet.packetType == .announce {
@@ -378,7 +388,10 @@ public actor RNSTransport {
 
         // Check if this is for a local destination
         if let destination = destinations[packet.destinationHash] {
+            dataPacketsForLocal += 1
             destination.packetCallback?(packet)
+        } else if activeLinks[packet.destinationHash] == nil {
+            dataPacketsUnmatched += 1
         }
 
         // Check if this is for an active link
@@ -653,6 +666,64 @@ public actor RNSTransport {
         pendingPathRequests = pendingPathRequests.filter { $0.value > cutoff }
     }
 
+    // MARK: - Diagnostics
+
+    /// Probe a destination to diagnose delivery issues. Returns a step-by-step report.
+    public func probePath(to destinationHash: Data) async -> String {
+        let hex = destinationHash.prefix(8).map { String(format: "%02x", $0) }.joined()
+        var report = "PROBE \(hex)...\n"
+
+        // Step 1: Check path table
+        if let path = findPath(to: destinationHash) {
+            report += "✓ Path found: via \(path.interfaceName), \(path.hops) hops, expires \(Int(path.expires.timeIntervalSinceNow))s\n"
+
+            // Step 2: Check interface exists and is online
+            if let iface = interfaces[path.interfaceName] {
+                report += "✓ Interface '\(iface.name)' exists, online=\(iface.isOnline)\n"
+                if !iface.isOnline {
+                    report += "✗ PROBLEM: Interface is offline — packet can't be sent\n"
+                }
+            } else {
+                report += "✗ PROBLEM: Interface '\(path.interfaceName)' not found in registered interfaces\n"
+                let names = interfaces.keys.joined(separator: ", ")
+                report += "  Available: [\(names)]\n"
+            }
+        } else {
+            report += "✗ No path in table\n"
+
+            // Step 2b: Try requesting a path
+            report += "→ Sending path request...\n"
+            do {
+                try await requestPath(to: destinationHash)
+                report += "✓ Path request sent, waiting 5s...\n"
+                let found = await waitForPath(to: destinationHash, timeout: 5.0)
+                if found {
+                    if let path = findPath(to: destinationHash) {
+                        report += "✓ Path discovered: via \(path.interfaceName), \(path.hops) hops\n"
+                    }
+                } else {
+                    report += "✗ PROBLEM: No path response after 5s — peer may be unreachable\n"
+                }
+            } catch {
+                report += "✗ Path request failed: \(error.localizedDescription)\n"
+            }
+        }
+
+        // Step 3: Check registered destinations
+        report += "Registered destinations: \(destinations.count)\n"
+        for (hash, dest) in destinations {
+            report += "  \(hash.prefix(4).map { String(format: "%02x", $0) }.joined())... (\(dest.appName))\n"
+        }
+
+        // Step 4: Interfaces summary
+        report += "Interfaces: \(interfaces.count)\n"
+        for (name, iface) in interfaces {
+            report += "  \(name): online=\(iface.isOnline)\n"
+        }
+
+        return report
+    }
+
     /// Get transport statistics.
     public func statistics() -> TransportStatistics {
         TransportStatistics(
@@ -668,7 +739,13 @@ public actor RNSTransport {
             announcesProcessed: announcesProcessed,
             announcesSent: announcesSent,
             pathRequestsReceived: pathRequestsReceived,
-            pathResponsesSent: pathResponsesSent
+            pathResponsesSent: pathResponsesSent,
+            dataPacketsForLocal: dataPacketsForLocal,
+            dataPacketsUnmatched: dataPacketsUnmatched,
+            packetsSent: packetsSent,
+            pathRequestsSent: pathRequestsSent,
+            sendErrors: sendErrors,
+            lastSendError: lastSendError
         )
     }
 }
@@ -689,4 +766,10 @@ public struct TransportStatistics: Sendable {
     public let announcesSent: UInt64
     public let pathRequestsReceived: UInt64
     public let pathResponsesSent: UInt64
+    public let dataPacketsForLocal: UInt64
+    public let dataPacketsUnmatched: UInt64
+    public let packetsSent: UInt64
+    public let pathRequestsSent: UInt64
+    public let sendErrors: UInt64
+    public let lastSendError: String?
 }

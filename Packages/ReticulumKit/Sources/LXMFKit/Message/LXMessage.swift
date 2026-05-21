@@ -196,7 +196,26 @@ public struct LXMessage: Identifiable, Sendable {
     }
 
     /// Deserialize an LXMF message from wire format.
+    /// Supports both the Swift format and the Python LXMF reference format.
+    ///
+    /// Swift format: msgpack([src_hash, dst_hash, method, fields_map])
+    /// Python format: dest_hash(16) + src_hash(16) + signature(64) + msgpack([timestamp, title, content, fields, ?stamp])
     public static func deserialize(_ data: Data) throws -> LXMessage {
+        // Try Swift format first (entire data is a msgpack array starting with binary)
+        if let msg = try? deserializeSwiftFormat(data) {
+            return msg
+        }
+
+        // Try Python LXMF reference format (96-byte header + msgpack payload)
+        if let msg = try? deserializePythonFormat(data) {
+            return msg
+        }
+
+        throw LXMFError.invalidFormat
+    }
+
+    /// Deserialize from the Swift wire format: msgpack([src_hash, dst_hash, method, fields_map])
+    private static func deserializeSwiftFormat(_ data: Data) throws -> LXMessage {
         let value = try MessagePackDecoder.decode(data)
 
         guard case .array(let arr) = value, arr.count >= 4 else {
@@ -255,6 +274,98 @@ public struct LXMessage: Identifiable, Sendable {
             title: title,
             timestamp: timestamp,
             method: method,
+            fields: fields
+        )
+        msg.sourceName = sourceName
+        msg.destinationName = destinationName
+        msg.attachments = attachments
+
+        return msg
+    }
+
+    /// Deserialize from the Python LXMF reference format:
+    /// dest_hash(16) + src_hash(16) + signature(64) + msgpack([timestamp, title, content, fields, ?stamp])
+    private static func deserializePythonFormat(_ data: Data) throws -> LXMessage {
+        let headerSize = 16 + 16 + 64 // dest + src + signature
+        guard data.count > headerSize else {
+            throw LXMFError.invalidFormat
+        }
+
+        let dstHash = Data(data[0..<16])
+        let srcHash = Data(data[16..<32])
+        // signature at 32..<96 (used for verification, skipped for now)
+        let payloadData = Data(data[headerSize...])
+
+        let value = try MessagePackDecoder.decode(payloadData)
+        guard case .array(let arr) = value, arr.count >= 4 else {
+            throw LXMFError.invalidFormat
+        }
+
+        // Python format: [timestamp_float, title_bytes, content_bytes, fields_dict, ?stamp]
+        var timestamp = Date()
+        if let tsDouble = arr[0].doubleValue {
+            timestamp = Date(timeIntervalSince1970: tsDouble)
+        } else if let tsFloat = arr[0].floatValue {
+            timestamp = Date(timeIntervalSince1970: TimeInterval(tsFloat))
+        } else if let tsInt = arr[0].intValue {
+            timestamp = Date(timeIntervalSince1970: TimeInterval(tsInt))
+        }
+
+        // Title: bytes or nil
+        let title: String?
+        if let titleData = arr[1].dataValue {
+            title = String(data: titleData, encoding: .utf8)
+        } else if let titleStr = arr[1].stringValue {
+            title = titleStr
+        } else {
+            title = nil
+        }
+
+        // Content: bytes or string
+        let content: String
+        if let contentData = arr[2].dataValue {
+            content = String(data: contentData, encoding: .utf8) ?? ""
+        } else if let contentStr = arr[2].stringValue {
+            content = contentStr
+        } else {
+            content = ""
+        }
+
+        // Fields dict
+        var fields: [UInt8: MessagePackValue] = [:]
+        var sourceName: String?
+        var destinationName: String?
+        var attachments: [LXMFAttachment] = []
+
+        if case .map(let fieldPairs) = arr[3] {
+            for (key, val) in fieldPairs {
+                guard let keyNum = key.intValue else { continue }
+                let fieldType = UInt8(keyNum)
+                switch fieldType {
+                case FieldType.sourceName.rawValue:
+                    sourceName = val.stringValue
+                case FieldType.destinationName.rawValue:
+                    destinationName = val.stringValue
+                case FieldType.fileAttachment.rawValue:
+                    if let att = LXMFAttachment.fromMessagePack(val) {
+                        attachments.append(att)
+                    }
+                default:
+                    fields[fieldType] = val
+                }
+            }
+        }
+
+        let msgId = RNSCrypto.truncatedHash(data)
+
+        var msg = LXMessage(
+            id: msgId,
+            sourceHash: srcHash,
+            destinationHash: dstHash,
+            content: content,
+            title: title,
+            timestamp: timestamp,
+            method: .direct,
             fields: fields
         )
         msg.sourceName = sourceName

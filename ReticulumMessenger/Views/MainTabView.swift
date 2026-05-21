@@ -16,23 +16,17 @@ struct MainTabView: View {
                 .tag(0)
                 .badge(totalUnread)
 
-            MeshMapView()
-                .tabItem {
-                    Label("Map", systemImage: "map")
-                }
-                .tag(1)
-
             NetworkStatusView()
                 .tabItem {
                     Label("Network", systemImage: "network")
                 }
-                .tag(2)
+                .tag(1)
 
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(3)
+                .tag(2)
         }
         .tint(.accentColor)
     }

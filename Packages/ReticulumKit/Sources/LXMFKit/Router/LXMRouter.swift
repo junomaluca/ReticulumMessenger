@@ -51,6 +51,18 @@ public actor LXMRouter {
     /// Delivery update handlers.
     private var deliveryHandlers: [(DeliveryUpdate) -> Void] = []
 
+    /// Diagnostic counters for message reception pipeline.
+    public private(set) var packetsReceived: UInt64 = 0
+    public private(set) var deserializeFailures: UInt64 = 0
+    public private(set) var messagesDelivered: UInt64 = 0
+    public private(set) var lastDeserializeError: String?
+
+    /// Diagnostic counters for sending pipeline.
+    public private(set) var sendAttempts: UInt64 = 0
+    public private(set) var sendSuccesses: UInt64 = 0
+    public private(set) var sendFailures: UInt64 = 0
+    public private(set) var lastSendError: String?
+
     /// The app name used for LXMF destinations.
     public static let appName = "lxmf"
     public static let deliveryAspect = "delivery"
@@ -177,9 +189,11 @@ public actor LXMRouter {
         ))
 
         // Try direct delivery first
+        sendAttempts += 1
         do {
             try await deliverDirect(msg)
             msg.state = .sent
+            sendSuccesses += 1
             outboundQueue[msg.id] = msg
             notifyDeliveryUpdate(DeliveryUpdate(
                 messageId: msg.id,
@@ -187,17 +201,17 @@ public actor LXMRouter {
                 timestamp: Date()
             ))
         } catch {
+            sendFailures += 1
+            lastSendError = error.localizedDescription
             // Fall back to propagation if configured
             if let propNode = propagationNode {
                 do {
                     try await deliverViaPropagation(msg, node: propNode)
                 } catch {
-                    // Queue for retry instead of immediately failing
                     queueForRetry(msg)
                     throw error
                 }
             } else {
-                // Queue for retry instead of immediately failing
                 queueForRetry(msg)
                 throw error
             }
@@ -249,10 +263,16 @@ public actor LXMRouter {
 
     /// Handle an incoming packet on the delivery destination.
     private func handleIncomingPacket(_ packet: RNSPacket) {
-        guard let message = try? LXMessage.deserialize(packet.data) else {
-            return
+        packetsReceived += 1
+
+        do {
+            let message = try LXMessage.deserialize(packet.data)
+            messagesDelivered += 1
+            dispatchReceivedMessage(message)
+        } catch {
+            deserializeFailures += 1
+            lastDeserializeError = "\(error.localizedDescription) (pkt \(packet.data.count)B, first: \(packet.data.prefix(4).map { String(format: "%02x", $0) }.joined()))"
         }
-        dispatchReceivedMessage(message)
     }
 
     /// Handle an incoming link (for direct delivery).
