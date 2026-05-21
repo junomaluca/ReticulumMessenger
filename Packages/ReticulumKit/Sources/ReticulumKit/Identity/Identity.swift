@@ -185,23 +185,27 @@ public final class RNSIdentity: Identifiable, Sendable {
         let nameHash = RNSCrypto.nameHash(appName)
         let randomHash = RNSCrypto.randomBytes(count: RNS.randomHashLength)
 
-        var announceBody = Data()
-        announceBody.append(publicKeyBytes)
-        announceBody.append(nameHash)
-        announceBody.append(randomHash)
-        if let appData = appData {
-            announceBody.append(appData)
-        }
-
-        // Sign: destinationHash + announceBody (Python reference includes dest hash)
+        // Python announce body layout:
+        //   pubkey(64) | nameHash(10) | randomHash(10) | signature(64) | appData(?)
+        // Signature covers: destHash + pubkey + nameHash + randomHash + appData
         var signedData = Data()
         signedData.append(destinationHash)
-        signedData.append(announceBody)
+        signedData.append(publicKeyBytes)
+        signedData.append(nameHash)
+        signedData.append(randomHash)
+        if let appData = appData {
+            signedData.append(appData)
+        }
         let signature = try sign(signedData)
 
         var announce = Data()
-        announce.append(announceBody)
+        announce.append(publicKeyBytes)
+        announce.append(nameHash)
+        announce.append(randomHash)
         announce.append(signature)
+        if let appData = appData {
+            announce.append(appData)
+        }
         return announce
     }
 }

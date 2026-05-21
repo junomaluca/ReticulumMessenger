@@ -40,6 +40,9 @@ public struct RNSPacket: Sendable {
     /// Packet context byte.
     public var context: RNS.PacketContext
 
+    /// Context flag from header byte (bit 5). In announces, signals ratchet presence.
+    public var contextFlag: Bool
+
     /// Packet payload data.
     public var data: Data
 
@@ -65,6 +68,7 @@ public struct RNSPacket: Sendable {
         destinationHash: Data,
         transportId: Data? = nil,
         context: RNS.PacketContext = .none,
+        contextFlag: Bool = false,
         data: Data
     ) {
         self.headerType = headerType
@@ -75,6 +79,7 @@ public struct RNSPacket: Sendable {
         self.destinationHash = destinationHash
         self.transportId = transportId
         self.context = context
+        self.contextFlag = contextFlag
         self.data = data
     }
 
@@ -127,9 +132,17 @@ public struct RNSPacket: Sendable {
         var result = Data()
 
         // Header byte: [IFAC:1][HeaderType:1][PropType:2][DestType:2][PacketType:2]
-        // IFAC flag (bit 7) is always 0 — we don't use Interface Access Codes.
+        // Header byte layout (Python reference):
+        // Bit 7: IFAC flag (0 = no IFAC)
+        // Bit 6: Header type (0 = type1, 1 = type2)
+        // Bit 5: Context flag (1 = ratchet present in announces)
+        // Bit 4: Propagation type (0 = broadcast, 1 = transport)
+        // Bits 3-2: Destination type
+        // Bits 1-0: Packet type
+        let contextFlagBit: UInt8 = contextFlag ? 1 : 0
         let header: UInt8 =
             (headerType.rawValue << 6) |
+            (contextFlagBit << 5) |
             (propagationType.rawValue << 4) |
             (destinationType.rawValue << 2) |
             packetType.rawValue
@@ -175,7 +188,8 @@ public struct RNSPacket: Sendable {
         }
 
         let headerTypeRaw = (header >> 6) & 0x01
-        let propTypeRaw = (header >> 4) & 0x03
+        let contextFlagBit = (header >> 5) & 0x01
+        let propTypeRaw = (header >> 4) & 0x01
         let destTypeRaw = (header >> 2) & 0x03
         let pktTypeRaw = header & 0x03
 
@@ -225,6 +239,7 @@ public struct RNSPacket: Sendable {
             destinationHash: destHash,
             transportId: transportId.map { Data($0) },
             context: context,
+            contextFlag: contextFlagBit == 1,
             data: data
         )
         packet.raw = rawData
