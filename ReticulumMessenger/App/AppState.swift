@@ -38,6 +38,9 @@ final class AppState: ObservableObject {
     /// Keyed by interface name. Updated by the periodic refresh loop.
     @Published var recentOutboundByInterface: [String: [String]] = [:]
 
+    /// Last N LXMF send/recv events with sizes + errors. Refreshed periodically.
+    @Published var recentMessageLog: [LXMRouter.LogEntry] = []
+
     // Settings
     @Published var autoAnnounceEnabled = false
     @Published var transportModeEnabled = false
@@ -753,11 +756,28 @@ final class AppState: ObservableObject {
     private func handleAnnounce(hash: Data, name: String?, appData: String?) {
         let hexHash = hash.map { String(format: "%02x", $0) }.joined()
 
-        // Parse display name and optional location from appData.
-        // Format: "displayName" or "displayName\x1Elat,lon"
+        // Display name + optional location is extracted from the announce app_data.
+        // Three encodings are seen in the wild:
+        //  1. Our legacy format: "displayName\x1Elat,lon" (UTF-8 string).
+        //  2. Our legacy: bare "displayName" (UTF-8 string).
+        //  3. Official LXMF v0.5.0+: msgpack array `[display_name_bytes, stamp_cost, supported_features?, ...]`
+        //     — locations are NOT in the announce; they ride on LXMF telemetry messages.
         var displayName = name
         if let raw = appData {
-            if let sep = raw.firstIndex(of: "\u{1E}") {
+            let bytes = Data(raw.utf8)
+            // Detect LXMF v0.5.0+ msgpack format (first byte is a fixed-array or array16 marker).
+            // 0x90..0x9f = fixed-length array, 0xdc = array16.
+            if let first = bytes.first, (first >= 0x90 && first <= 0x9f) || first == 0xdc {
+                if let value = try? MessagePackDecoder.decode(bytes),
+                   case .array(let arr) = value,
+                   !arr.isEmpty {
+                    if let dnBytes = arr[0].dataValue, let s = String(data: dnBytes, encoding: .utf8) {
+                        displayName = s.replacingOccurrences(of: "\u{0000}", with: "")
+                    } else if let s = arr[0].stringValue {
+                        displayName = s
+                    }
+                }
+            } else if let sep = raw.firstIndex(of: "\u{1E}") {
                 displayName = String(raw[raw.startIndex..<sep])
                 let locPart = String(raw[raw.index(after: sep)...])
                 let parts = locPart.split(separator: ",")
@@ -938,6 +958,7 @@ final class AppState: ObservableObject {
                         if let err = lxErr {
                             diag += "\nrecv-err: \(err)"
                         }
+                        recentMessageLog = await router.messageLog
                     }
                     packetDiagnostics = diag
                 }
