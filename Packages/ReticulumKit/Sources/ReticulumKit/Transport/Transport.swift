@@ -400,13 +400,9 @@ public actor RNSTransport {
 
         // Parse announce data to extract identity
         let data = packet.data
-        // Announce layout (Python reference): pubkey[64] | nameHash[10] | randomHash[10] | appData[?] | signature[64]
-        let headerSize = RNS.identityKeySize + RNS.nameHashLength + RNS.randomHashLength  // 84
         let signatureSize = 64
-        // Accept announces with either 10-byte or 32-byte nameHash for compatibility
-        // with both Python peers and older Swift peers.
-        let minSize = headerSize + signatureSize  // 148
-        guard data.count >= minSize else { return }
+        // Minimum announce: pubkey(64) + nameHash(10) + randomHash(10) + sig(64) = 148
+        guard data.count >= RNS.identityKeySize + 10 + 10 + signatureSize else { return }
 
         let pubKeyBytes = data.prefix(RNS.identityKeySize)
         guard let identity = try? RNSIdentity(publicKeyBytes: Data(pubKeyBytes)) else { return }
@@ -420,9 +416,41 @@ public actor RNSTransport {
             announceData: packet.data
         )
 
-        // Extract optional app data between the fixed header and trailing signature.
+        // Determine the nameHash length used in this announce by checking which
+        // produces a destination hash matching the packet's destination hash.
+        // Python uses 10-byte nameHash, older Swift builds used 32-byte.
+        let identityHash = identity.hash
+        var detectedHeaderSize = RNS.identityKeySize + RNS.nameHashLength + RNS.randomHashLength  // 84 (Python)
+
+        // Try 10-byte nameHash first (Python/current format)
+        let nameHash10 = Data(data[RNS.identityKeySize..<(RNS.identityKeySize + 10)])
+        var addrMaterial = Data()
+        addrMaterial.append(nameHash10)
+        addrMaterial.append(identityHash)
+        let computedHash10 = RNSCrypto.truncatedHash(addrMaterial)
+
+        if computedHash10 != packet.destinationHash {
+            // Try 32-byte nameHash (older Swift format)
+            if data.count >= RNS.identityKeySize + 32 + 10 + signatureSize {
+                let nameHash32 = Data(data[RNS.identityKeySize..<(RNS.identityKeySize + 32)])
+                var addrMaterial32 = Data()
+                addrMaterial32.append(Data(nameHash32.prefix(10)))
+                addrMaterial32.append(identityHash)
+                let computedHash32 = RNSCrypto.truncatedHash(addrMaterial32)
+
+                if computedHash32 == packet.destinationHash {
+                    // Old Swift format with 32-byte nameHash in payload
+                    detectedHeaderSize = RNS.identityKeySize + 32 + 10  // 106
+                }
+                // If neither matches, fall back to Python format (most likely a
+                // different app name that we can't reconstruct).
+            }
+        }
+
+        // Extract optional app data between the detected header and trailing signature.
+        let minSize = detectedHeaderSize + signatureSize
         let appData: Data? = data.count > minSize ?
-            Data(data[headerSize..<(data.count - signatureSize)]) : nil
+            Data(data[detectedHeaderSize..<(data.count - signatureSize)]) : nil
 
         // Notify announce handlers
         for handler in announceHandlers {
