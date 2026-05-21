@@ -56,6 +56,17 @@ final class AppState: ObservableObject {
     @Published var ntfyTopic: String = ""
     @Published var lastStreamAt: Date?
 
+    // Rust engine status (mirrored from RustEngine for the UI).
+    @Published var rustEngineEnabled: Bool = false
+    @Published var rustEngineStarted: Bool = false
+    @Published var rustLxmfAddress: String = ""
+    @Published var rustIdentityHash: String = ""
+    @Published var rustEngineError: String?
+    @Published var rustRecentInbound: [String] = []   // newest last, max 20
+
+    /// Lazily-created Rust engine. nil until the user enables it.
+    private(set) var rustEngine: RustEngine?
+
     // MARK: - Services
 
     private(set) var messengerService: MessengerService?
@@ -210,6 +221,11 @@ final class AppState: ObservableObject {
             // Start streaming if enabled
             if streamDiagnosticsEnabled {
                 startStreamDiagnostics()
+            }
+
+            // Auto-start Rust engine if user enabled it previously
+            if rustEngineEnabled {
+                startRustEngine()
             }
 
             // Activate transport mode if enabled
@@ -485,6 +501,104 @@ final class AppState: ObservableObject {
         autoAnnounceTimer = nil
         autoAnnounceEnabled = false
         saveUserPreferences()
+    }
+
+    // MARK: - Rust Engine
+
+    /// Toggle the experimental Rust LXMF engine. Sends/receives via the
+    /// official Rusticulum + LXMF-rust impls when ON. Pure-Swift stack
+    /// continues to run alongside it for backwards compatibility.
+    func setRustEngine(_ enabled: Bool) {
+        rustEngineEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "rustEngineEnabled")
+        if enabled {
+            startRustEngine()
+        } else {
+            // We don't tear down the Rust client mid-session; toggling off
+            // simply stops the app from offering it as a send/receive engine.
+            rustEngineStarted = false
+        }
+    }
+
+    private func startRustEngine() {
+        if rustEngine == nil {
+            rustEngine = RustEngine()
+        }
+        guard let engine = rustEngine else { return }
+        let name = storageService?.loadDisplayName() ?? "Reticulum Messenger"
+        Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                try engine.start(displayName: name)
+                await MainActor.run {
+                    self?.rustEngineStarted = true
+                    self?.rustLxmfAddress = engine.lxmfHash?
+                        .map { String(format: "%02x", $0) }.joined() ?? ""
+                    self?.rustIdentityHash = engine.identityHash?
+                        .map { String(format: "%02x", $0) }.joined() ?? ""
+                    self?.rustEngineError = nil
+                }
+                engine.setDeliveryHandler { [weak self] msg in
+                    let line = "\(msg.title.isEmpty ? "(no title)" : msg.title): \(msg.content.prefix(80))"
+                    Task { @MainActor in
+                        self?.rustRecentInbound.append(line)
+                        if (self?.rustRecentInbound.count ?? 0) > 20 {
+                            self?.rustRecentInbound.removeFirst()
+                        }
+                        NotificationService.shared.showMessageNotification(
+                            from: "rust",
+                            content: msg.content,
+                            conversationHash: msg.sourceHash
+                                .map { String(format: "%02x", $0) }.joined()
+                        )
+                    }
+                }
+                engine.setAnnounceHandler { _, _ in /* logged at FFI layer */ }
+                engine.announce()
+            } catch {
+                await MainActor.run {
+                    self?.rustEngineStarted = false
+                    self?.rustEngineError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// Send a text message via the Rust engine. Throws on misconfiguration.
+    func rustSendText(to destHex: String, content: String, title: String = "") async throws {
+        guard let engine = rustEngine, rustEngineStarted else {
+            throw RustEngineError.sendFailed("Rust engine not started")
+        }
+        guard let dest = Self.hexToData(destHex), dest.count == 16 else {
+            throw RustEngineError.invalidArgument("Invalid 32-char hex address")
+        }
+        _ = try engine.sendText(to: dest, content: content, title: title)
+    }
+
+    /// Send a binary attachment via the Rust engine.
+    func rustSendAttachment(to destHex: String, data: Data, mime: String, filename: String,
+                            title: String = "", body: String = "") async throws {
+        guard let engine = rustEngine, rustEngineStarted else {
+            throw RustEngineError.sendFailed("Rust engine not started")
+        }
+        guard let dest = Self.hexToData(destHex), dest.count == 16 else {
+            throw RustEngineError.invalidArgument("Invalid 32-char hex address")
+        }
+        _ = try engine.sendAttachment(to: dest, data: data, mimeType: mime,
+                                      filename: filename, title: title, body: body)
+    }
+
+    private static func hexToData(_ hex: String) -> Data? {
+        let s = hex.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard s.count % 2 == 0, s.allSatisfy({ "0123456789abcdef".contains($0) }) else { return nil }
+        var out = Data(capacity: s.count / 2)
+        var idx = s.startIndex
+        while idx < s.endIndex {
+            let next = s.index(idx, offsetBy: 2)
+            guard let b = UInt8(s[idx..<next], radix: 16) else { return nil }
+            out.append(b)
+            idx = next
+        }
+        return out
     }
 
     // MARK: - Auto-publish Diagnostics
@@ -1163,6 +1277,7 @@ final class AppState: ObservableObject {
         autoPublishDiagnosticsEnabled = defaults.bool(forKey: "autoPublishDiagnostics")
         streamDiagnosticsEnabled = defaults.bool(forKey: "streamDiagnostics")
         ntfyTopic = defaults.string(forKey: "ntfyTopic") ?? ""
+        rustEngineEnabled = defaults.bool(forKey: "rustEngineEnabled")
         lastDiagnosticsURL = defaults.string(forKey: "lastDiagnosticsURL")
         if let ts = defaults.object(forKey: "lastDiagnosticsAt") as? Date {
             lastDiagnosticsAt = ts

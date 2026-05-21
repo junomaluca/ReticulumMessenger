@@ -14,6 +14,7 @@ struct TestLabView: View {
     @State private var results: [TestResult] = []
     @State private var running = false
     @State private var currentLabel: String?
+    @State private var useRustEngine: Bool = false
 
     var body: some View {
         Form {
@@ -40,6 +41,39 @@ struct TestLabView: View {
                     .font(.caption2)
                     .monospaced()
             }
+
+            Section {
+                Toggle(isOn: Binding(
+                    get: { appState.rustEngineEnabled },
+                    set: { appState.setRustEngine($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Use Rust engine (experimental)")
+                        Text("Routes sends through Rusticulum + LXMF-rust FFI")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Toggle("Send via Rust engine", isOn: $useRustEngine)
+                    .disabled(!appState.rustEngineStarted)
+                if appState.rustEngineEnabled {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Rust LXMF: \(appState.rustLxmfAddress.isEmpty ? "(starting…)" : appState.rustLxmfAddress)")
+                            .font(.caption).monospaced().textSelection(.enabled)
+                        Text("Rust Identity: \(appState.rustIdentityHash.isEmpty ? "(starting…)" : appState.rustIdentityHash)")
+                            .font(.caption).monospaced().textSelection(.enabled)
+                        if let e = appState.rustEngineError {
+                            Text("Error: \(e)").font(.caption2).foregroundStyle(.red)
+                        }
+                        if !appState.rustRecentInbound.isEmpty {
+                            Text("Recent inbound (Rust):").font(.caption2).foregroundStyle(.secondary)
+                            ForEach(Array(appState.rustRecentInbound.enumerated()), id: \.offset) { _, line in
+                                Text("• \(line)").font(.caption2).lineLimit(2)
+                            }
+                        }
+                    }
+                }
+            } header: { Text("Rust engine") }
 
             Section("Individual tests") {
                 testButton("Send 1 tiny text (20 B)") {
@@ -183,7 +217,11 @@ struct TestLabView: View {
 
     private func sendText(content: String) async throws {
         guard let hash = peerHash else { throw NSError(domain: "TestLab", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid peer address"]) }
-        try await appState.sendMessage(content: content, to: hash)
+        if useRustEngine {
+            try await appState.rustSendText(to: peerHex, content: content)
+        } else {
+            try await appState.sendMessage(content: content, to: hash)
+        }
     }
 
     private func sendAttachment(size: Int, mime: String, name: String) async throws {
@@ -192,7 +230,12 @@ struct TestLabView: View {
         bytes.withUnsafeMutableBytes { buf in
             _ = SecRandomCopyBytes(kSecRandomDefault, size, buf.baseAddress!)
         }
-        try await appState.sendAttachment(data: bytes, mimeType: mime, filename: name, to: hash)
+        if useRustEngine {
+            try await appState.rustSendAttachment(to: peerHex, data: bytes,
+                                                  mime: mime, filename: name)
+        } else {
+            try await appState.sendAttachment(data: bytes, mimeType: mime, filename: name, to: hash)
+        }
     }
 
     private func pasteAddress() {
