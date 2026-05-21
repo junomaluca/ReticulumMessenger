@@ -22,17 +22,11 @@ struct MainTabView: View {
                 }
                 .tag(1)
 
-            MeshMapView()
-                .tabItem {
-                    Label("Map", systemImage: "map")
-                }
-                .tag(2)
-
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(3)
+                .tag(2)
         }
         .tint(.accentColor)
     }
