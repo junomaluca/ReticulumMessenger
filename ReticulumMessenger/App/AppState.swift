@@ -605,6 +605,7 @@ final class AppState: ObservableObject {
         // Parse display name and optional location from appData.
         // Format: "displayName" or "displayName\x1Elat,lon"
         var displayName = name
+        var hasLocation = false
         if let raw = appData {
             if let sep = raw.firstIndex(of: "\u{1E}") {
                 displayName = String(raw[raw.startIndex..<sep])
@@ -613,6 +614,7 @@ final class AppState: ObservableObject {
                 if parts.count == 2,
                    let lat = Double(parts[0]),
                    let lon = Double(parts[1]) {
+                    hasLocation = true
                     telemetryService?.updatePeerLocation(
                         hash: hash, latitude: lat, longitude: lon,
                         displayName: displayName
@@ -623,16 +625,31 @@ final class AppState: ObservableObject {
             }
         }
 
-        let type: AnnounceEntry.AnnounceType
-        if appData?.contains("lxmf") == true {
-            type = .lxmf
-        } else if appData?.contains("transport") == true {
-            type = .transport
-        } else if appData?.contains("node") == true {
-            type = .node
-        } else {
-            type = .unknown
+        // If the peer didn't include location but we have our own location,
+        // still register them with a default so they appear in the known
+        // peers list (even if not on the map).
+        if !hasLocation {
+            // Update as a known peer without map placement
+            if let existing = knownPeers.firstIndex(where: { $0.destinationHash == hash }) {
+                // Already known — just update last seen
+                knownPeers[existing] = PeerInfo(
+                    destinationHash: hash,
+                    displayName: displayName ?? knownPeers[existing].displayName,
+                    lastSeen: Date()
+                )
+            } else {
+                knownPeers.append(PeerInfo(
+                    destinationHash: hash,
+                    displayName: displayName ?? hexHash,
+                    lastSeen: Date()
+                ))
+            }
         }
+
+        // Announce type: all ReticulumMessenger announces are LXMF since
+        // they come from lxmf.delivery destinations. The appData contains
+        // a display name, not the app name string.
+        let type: AnnounceEntry.AnnounceType = .lxmf
 
         let entry = AnnounceEntry(
             hash: hexHash,

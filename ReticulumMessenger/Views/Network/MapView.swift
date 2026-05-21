@@ -116,7 +116,7 @@ struct MeshMapView: View {
         HStack(spacing: 4) {
             Image(systemName: "person.2.fill")
                 .font(.caption2)
-            Text("\(peerLocations.count) peers")
+            Text("\(peerLocations.count) on map, \(appState.knownPeers.count) discovered")
                 .font(.caption.bold())
         }
         .padding(.horizontal, 10)

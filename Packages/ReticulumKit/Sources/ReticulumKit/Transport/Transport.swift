@@ -424,7 +424,8 @@ public actor RNSTransport {
         //   Python (new):  pubkey(64) | nameHash(10) | randomHash(10) | [ratchet(32)] | signature(64) | appData(?)
         //   Old Swift:     pubkey(64) | nameHash(10) | randomHash(10) | appData(?) | signature(64)
         //
-        // Detect format by verifying signature in both positions.
+        // Detect format by trying signature verification in both positions.
+        // If verification is inconclusive, fall back to trying both text extractions.
         let headerBase = RNS.identityKeySize + RNS.nameHashLength + RNS.randomHashLength  // 84
         let hasRatchet = packet.contextFlag && (data.count >= headerBase + 32 + signatureSize)
         let sigOffsetNew = hasRatchet ? headerBase + 32 : headerBase
@@ -432,25 +433,24 @@ public actor RNSTransport {
 
         var appData: Data?
 
-        // Try Python/new format first: signature at sigOffsetNew, appData after
         if data.count >= appDataOffsetNew {
-            let sigNew = Data(data[sigOffsetNew..<appDataOffsetNew])
+            // Extract candidates from both formats
             let appDataNew: Data? = data.count > appDataOffsetNew ? Data(data[appDataOffsetNew...]) : nil
+            let appDataOld: Data? = data.count > headerBase + signatureSize ?
+                Data(data[headerBase..<(data.count - signatureSize)]) : nil
 
-            // Construct signed_data: destHash + pubkey + nameHash + randomHash + [ratchet] + appData
-            var signedData = Data()
-            signedData.append(packet.destinationHash)
-            signedData.append(data.prefix(sigOffsetNew))  // pubkey + nameHash + randomHash + [ratchet]
-            if let ad = appDataNew { signedData.append(ad) }
+            // Try signature verification for new format
+            let sigNew = Data(data[sigOffsetNew..<appDataOffsetNew])
+            var signedDataNew = Data()
+            signedDataNew.append(packet.destinationHash)
+            signedDataNew.append(data.prefix(sigOffsetNew))
+            if let ad = appDataNew { signedDataNew.append(ad) }
 
-            if identity.verify(signature: sigNew, for: signedData) {
+            if identity.verify(signature: sigNew, for: signedDataNew) {
                 appData = appDataNew
             } else {
-                // Try old format: signature is last 64 bytes, appData in between
+                // Try signature verification for old format
                 let sigOld = Data(data[(data.count - signatureSize)...])
-                let appDataOld: Data? = data.count > headerBase + signatureSize ?
-                    Data(data[headerBase..<(data.count - signatureSize)]) : nil
-
                 var signedDataOld = Data()
                 signedDataOld.append(packet.destinationHash)
                 signedDataOld.append(data.prefix(headerBase))
@@ -459,9 +459,14 @@ public actor RNSTransport {
                 if identity.verify(signature: sigOld, for: signedDataOld) {
                     appData = appDataOld
                 } else {
-                    // Signature doesn't verify in either format; still extract
-                    // using new format as best-effort (may be a different app).
-                    appData = appDataNew
+                    // Neither signature verified. Try heuristic: if old-format
+                    // appData decodes as valid UTF-8, use it; otherwise use new.
+                    if let oldData = appDataOld,
+                       String(data: oldData, encoding: .utf8) != nil {
+                        appData = appDataOld
+                    } else {
+                        appData = appDataNew
+                    }
                 }
             }
         }
