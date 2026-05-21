@@ -6,6 +6,10 @@ import SwiftUI
 struct NetworkStatusView: View {
     @EnvironmentObject var appState: AppState
     @State private var showAddInterface = false
+    @State private var copiedToast = false
+    @State private var isPublishing = false
+    @State private var publishedURL: URL?
+    @State private var publishError: String?
 
     var body: some View {
         NavigationStack {
@@ -77,10 +81,139 @@ struct NetworkStatusView: View {
 
                 // Packet Diagnostics
                 if !appState.packetDiagnostics.isEmpty {
-                    Section("Packet Stats") {
+                    Section {
                         Text(appState.packetDiagnostics)
                             .font(.caption)
                             .monospaced()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                UIPasteboard.general.string = appState.packetDiagnostics
+                                withAnimation { copiedToast = true }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                    withAnimation { copiedToast = false }
+                                }
+                            }
+                        Button {
+                            publishDiagnostics()
+                        } label: {
+                            HStack {
+                                if isPublishing {
+                                    ProgressView().controlSize(.small)
+                                    Text("Publishing…")
+                                } else {
+                                    Label("Publish Diagnostics", systemImage: "square.and.arrow.up")
+                                }
+                            }
+                        }
+                        .disabled(isPublishing)
+
+                        Toggle(isOn: Binding(
+                            get: { appState.autoPublishDiagnosticsEnabled },
+                            set: { appState.setAutoPublishDiagnostics($0) }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Auto-publish every 1 min")
+                                Text("Posts to paste.rs in the background")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Toggle(isOn: Binding(
+                            get: { appState.streamDiagnosticsEnabled },
+                            set: { appState.setStreamDiagnostics($0) }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Stream to ntfy.sh (every 10s)")
+                                Text("Pushes diagnostics for live remote monitoring")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        if appState.streamDiagnosticsEnabled && !appState.ntfyTopic.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Stream topic")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                HStack {
+                                    Text("ntfy.sh/" + appState.ntfyTopic)
+                                        .font(.caption)
+                                        .monospaced()
+                                        .textSelection(.enabled)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                    Spacer()
+                                    Button {
+                                        UIPasteboard.general.string = "https://ntfy.sh/" + appState.ntfyTopic + "/raw"
+                                        withAnimation { copiedToast = true }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                            withAnimation { copiedToast = false }
+                                        }
+                                    } label: {
+                                        Image(systemName: "doc.on.doc")
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                                if let ts = appState.lastStreamAt {
+                                    Text("Last push \(ts, style: .relative) ago")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+
+                        if let urlString = appState.lastDiagnosticsURL,
+                           let url = URL(string: urlString) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Latest URL")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                HStack {
+                                    Text(urlString)
+                                        .font(.caption)
+                                        .monospaced()
+                                        .textSelection(.enabled)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                    Spacer()
+                                    Button {
+                                        UIPasteboard.general.string = urlString
+                                        withAnimation { copiedToast = true }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                            withAnimation { copiedToast = false }
+                                        }
+                                    } label: {
+                                        Image(systemName: "doc.on.doc")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    Link(destination: url) {
+                                        Image(systemName: "arrow.up.right.square")
+                                    }
+                                }
+                                if let ts = appState.lastDiagnosticsAt {
+                                    Text("Published \(ts, style: .relative) ago")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            Text("Packet Stats")
+                            Spacer()
+                            if copiedToast {
+                                Text("Copied!")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                                    .transition(.opacity)
+                            } else {
+                                Text("tap to copy")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
                 }
 
@@ -156,6 +289,42 @@ struct NetworkStatusView: View {
             }
             .refreshable {
                 await appState.refreshNetworkStatus()
+            }
+            .alert("Diagnostics Published", isPresented: .init(
+                get: { publishedURL != nil },
+                set: { if !$0 { publishedURL = nil } }
+            )) {
+                Button("OK", role: .cancel) { publishedURL = nil }
+            } message: {
+                Text("URL copied to clipboard:\n\(publishedURL?.absoluteString ?? "")")
+            }
+            .alert("Publish Failed", isPresented: .init(
+                get: { publishError != nil },
+                set: { if !$0 { publishError = nil } }
+            )) {
+                Button("OK", role: .cancel) { publishError = nil }
+            } message: {
+                Text(publishError ?? "")
+            }
+        }
+    }
+
+    private func publishDiagnostics() {
+        guard !isPublishing else { return }
+        isPublishing = true
+        let report = DiagnosticsService.buildReport(appState: appState)
+        Task {
+            defer { Task { @MainActor in isPublishing = false } }
+            do {
+                let url = try await DiagnosticsService.publishToPasteRs(report)
+                await MainActor.run {
+                    UIPasteboard.general.string = url.absoluteString
+                    publishedURL = url
+                }
+            } catch {
+                await MainActor.run {
+                    publishError = error.localizedDescription
+                }
             }
         }
     }

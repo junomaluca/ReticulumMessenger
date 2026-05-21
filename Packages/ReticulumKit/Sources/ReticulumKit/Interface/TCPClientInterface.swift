@@ -30,6 +30,11 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
     public var interfaceType: String { "TCPClient" }
     public var isStreamInterface: Bool { true }
 
+    /// Debug capture: hex strings of recent outbound packets (pre-framing).
+    /// Useful for diagnosing wire-format incompatibilities with peer implementations.
+    public private(set) var recentOutboundHex: [String] = []
+    private let recentOutboundMax = 5
+
     public var isOnline: Bool {
         if case .connected = status { return true }
         return false
@@ -94,6 +99,13 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
     public func send(_ data: Data) async throws {
         guard let connection = connection, isOnline else {
             throw TCPInterfaceError.notConnected
+        }
+
+        // Capture pre-framing bytes for diagnostics.
+        let hex = data.prefix(220).map { String(format: "%02x", $0) }.joined()
+        recentOutboundHex.append("\(data.count)B " + hex)
+        if recentOutboundHex.count > recentOutboundMax {
+            recentOutboundHex.removeFirst(recentOutboundHex.count - recentOutboundMax)
         }
 
         let framed = frame(data)

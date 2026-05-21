@@ -34,11 +34,24 @@ final class AppState: ObservableObject {
     @Published var packetDiagnostics: String = ""
     @Published var probeResult: String = ""
 
+    /// Per-interface debug capture: recent outbound packet hex (pre-framing).
+    /// Keyed by interface name. Updated by the periodic refresh loop.
+    @Published var recentOutboundByInterface: [String: [String]] = [:]
+
     // Settings
     @Published var autoAnnounceEnabled = false
     @Published var transportModeEnabled = false
     @Published var propagationNodeEnabled = false
     @Published var locationSharingEnabled = false
+    @Published var autoPublishDiagnosticsEnabled = false
+    @Published var streamDiagnosticsEnabled = false
+
+    /// Most recent diagnostic publish URL (paste.rs) and its timestamp.
+    @Published var lastDiagnosticsURL: String?
+    @Published var lastDiagnosticsAt: Date?
+    /// ntfy.sh topic used for streaming. Generated once per install.
+    @Published var ntfyTopic: String = ""
+    @Published var lastStreamAt: Date?
 
     // MARK: - Services
 
@@ -52,6 +65,12 @@ final class AppState: ObservableObject {
     private var lxmRouter: LXMRouter?
     private var rnodeInterface: RNodeInterface?
     private var autoAnnounceTimer: Timer?
+    private var autoPublishTimer: Timer?
+    private var streamTimer: Timer?
+    /// Auto-publish cadence in seconds (paste.rs, persistent URL).
+    static let autoPublishInterval: TimeInterval = 60
+    /// Streaming cadence in seconds (ntfy.sh push to subscribed listener).
+    static let streamInterval: TimeInterval = 10
     private var periodicUpdateTask: Task<Void, Never>?
     private var rnodeScanTask: Task<Void, Never>?
     private var discoveredRNodeIds: Set<UUID> = []
@@ -178,6 +197,16 @@ final class AppState: ObservableObject {
             // Start auto-announce if enabled
             if autoAnnounceEnabled {
                 startAutoAnnounce()
+            }
+
+            // Start auto-publish if enabled
+            if autoPublishDiagnosticsEnabled {
+                startAutoPublishDiagnostics()
+            }
+
+            // Start streaming if enabled
+            if streamDiagnosticsEnabled {
+                startStreamDiagnostics()
             }
 
             // Activate transport mode if enabled
@@ -453,6 +482,101 @@ final class AppState: ObservableObject {
         autoAnnounceTimer = nil
         autoAnnounceEnabled = false
         saveUserPreferences()
+    }
+
+    // MARK: - Auto-publish Diagnostics
+
+    func setAutoPublishDiagnostics(_ enabled: Bool) {
+        autoPublishDiagnosticsEnabled = enabled
+        saveUserPreferences()
+        if enabled {
+            startAutoPublishDiagnostics()
+        } else {
+            stopAutoPublishDiagnostics()
+        }
+    }
+
+    private func startAutoPublishDiagnostics() {
+        stopAutoPublishDiagnostics()
+        // Fire once immediately so the latest URL is available right away,
+        // then on the interval.
+        publishDiagnosticsNow()
+        autoPublishTimer = Timer.scheduledTimer(withTimeInterval: Self.autoPublishInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.publishDiagnosticsNow()
+            }
+        }
+    }
+
+    private func stopAutoPublishDiagnostics() {
+        autoPublishTimer?.invalidate()
+        autoPublishTimer = nil
+    }
+
+    // MARK: - Stream Diagnostics (ntfy.sh)
+
+    func setStreamDiagnostics(_ enabled: Bool) {
+        streamDiagnosticsEnabled = enabled
+        saveUserPreferences()
+        if enabled {
+            ensureNtfyTopic()
+            startStreamDiagnostics()
+        } else {
+            stopStreamDiagnostics()
+        }
+    }
+
+    private func ensureNtfyTopic() {
+        if ntfyTopic.isEmpty {
+            // 22-char base62-ish topic from random bytes.
+            let chars = Array("abcdefghijklmnopqrstuvwxyz0123456789")
+            var t = "rmdiag-"
+            for _ in 0..<16 { t.append(chars.randomElement()!) }
+            ntfyTopic = t
+            saveUserPreferences()
+        }
+    }
+
+    private func startStreamDiagnostics() {
+        stopStreamDiagnostics()
+        ensureNtfyTopic()
+        // Fire once now, then on the interval.
+        streamDiagnosticsNow()
+        streamTimer = Timer.scheduledTimer(withTimeInterval: Self.streamInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.streamDiagnosticsNow()
+            }
+        }
+    }
+
+    private func stopStreamDiagnostics() {
+        streamTimer?.invalidate()
+        streamTimer = nil
+    }
+
+    func streamDiagnosticsNow() {
+        guard !ntfyTopic.isEmpty else { return }
+        let report = DiagnosticsService.buildReport(appState: self)
+        let topic = ntfyTopic
+        Task {
+            try? await DiagnosticsService.publishToNtfy(report, topic: topic)
+            await MainActor.run { self.lastStreamAt = Date() }
+        }
+    }
+
+    /// Publish current diagnostics to paste.rs and remember the URL.
+    /// Safe to call manually too.
+    func publishDiagnosticsNow() {
+        let report = DiagnosticsService.buildReport(appState: self)
+        Task {
+            if let url = try? await DiagnosticsService.publishToPasteRs(report) {
+                await MainActor.run {
+                    self.lastDiagnosticsURL = url.absoluteString
+                    self.lastDiagnosticsAt = Date()
+                    self.saveUserPreferences()
+                }
+            }
+        }
     }
 
     // MARK: - Transport Mode
@@ -745,6 +869,14 @@ final class AppState: ObservableObject {
         guard let rns = reticulum else { return }
         let ifaces = await rns.transport.getInterfaces()
         interfaces = ifaces.map { InterfaceInfo(from: $0) }
+        // Collect outbound debug captures from TCP interfaces.
+        var captures: [String: [String]] = [:]
+        for iface in ifaces {
+            if let tcp = iface as? TCPClientInterface {
+                captures[tcp.name] = tcp.recentOutboundHex
+            }
+        }
+        recentOutboundByInterface = captures
     }
 
     private func startPeriodicUpdates() {
@@ -998,13 +1130,22 @@ final class AppState: ObservableObject {
             "autoAnnounce": true,
             "locationSharing": true,
             "transportMode": false,
-            "propagationNode": false
+            "propagationNode": false,
+            "autoPublishDiagnostics": false,
+            "streamDiagnostics": false
         ])
 
         autoAnnounceEnabled = defaults.bool(forKey: "autoAnnounce")
         transportModeEnabled = defaults.bool(forKey: "transportMode")
         propagationNodeEnabled = defaults.bool(forKey: "propagationNode")
         locationSharingEnabled = defaults.bool(forKey: "locationSharing")
+        autoPublishDiagnosticsEnabled = defaults.bool(forKey: "autoPublishDiagnostics")
+        streamDiagnosticsEnabled = defaults.bool(forKey: "streamDiagnostics")
+        ntfyTopic = defaults.string(forKey: "ntfyTopic") ?? ""
+        lastDiagnosticsURL = defaults.string(forKey: "lastDiagnosticsURL")
+        if let ts = defaults.object(forKey: "lastDiagnosticsAt") as? Date {
+            lastDiagnosticsAt = ts
+        }
     }
 
     private func saveUserPreferences() {
@@ -1013,6 +1154,11 @@ final class AppState: ObservableObject {
         defaults.set(transportModeEnabled, forKey: "transportMode")
         defaults.set(propagationNodeEnabled, forKey: "propagationNode")
         defaults.set(locationSharingEnabled, forKey: "locationSharing")
+        defaults.set(autoPublishDiagnosticsEnabled, forKey: "autoPublishDiagnostics")
+        defaults.set(streamDiagnosticsEnabled, forKey: "streamDiagnostics")
+        defaults.set(ntfyTopic, forKey: "ntfyTopic")
+        if let url = lastDiagnosticsURL { defaults.set(url, forKey: "lastDiagnosticsURL") }
+        if let ts = lastDiagnosticsAt { defaults.set(ts, forKey: "lastDiagnosticsAt") }
     }
 }
 
