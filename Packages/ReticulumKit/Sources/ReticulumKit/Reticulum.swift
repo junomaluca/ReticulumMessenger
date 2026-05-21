@@ -58,6 +58,9 @@ public actor Reticulum {
 
         // Create interface delegate bridge
         let bridge = InterfaceBridge(transport: transport)
+        bridge.onInterfaceConnect = { [weak self] in
+            await self?.reannounceAllDestinations()
+        }
         self.interfaceBridge = bridge
 
         // Set up configured interfaces
@@ -70,6 +73,10 @@ public actor Reticulum {
                 }
             }
         }
+
+        // Wait briefly for at least one interface to come online so that
+        // announces sent immediately after start() actually reach the network.
+        _ = await transport.waitForOnlineInterface(timeout: 5.0)
 
         isRunning = true
 
@@ -191,6 +198,23 @@ public actor Reticulum {
         await transport.statistics()
     }
 
+    // MARK: - Reconnection
+
+    /// Re-announce all registered destinations. Called when an interface reconnects
+    /// so that the network learns about our destinations immediately, rather than
+    /// waiting for the next periodic announce.
+    private func reannounceAllDestinations() async {
+        let destinations = await transport.allDestinations()
+        for destination in destinations {
+            guard let identity = destination.identity, identity.hasPrivateKeys else {
+                continue
+            }
+            guard let announceData = try? destination.announce() else { continue }
+            let packet = RNSPacket.announce(from: destination, data: announceData)
+            _ = try? await transport.sendPacket(packet)
+        }
+    }
+
     // MARK: - Private
 
     private func createInterface(from config: RNSInterfaceConfig) -> (any RNSInterface)? {
@@ -220,6 +244,8 @@ public actor Reticulum {
 /// Bridges interface delegate callbacks to the transport actor.
 private final class InterfaceBridge: RNSInterfaceDelegate, @unchecked Sendable {
     let transport: RNSTransport
+    /// Callback invoked when an interface connects/reconnects.
+    var onInterfaceConnect: (@Sendable () async -> Void)?
 
     init(transport: RNSTransport) {
         self.transport = transport
@@ -232,7 +258,10 @@ private final class InterfaceBridge: RNSInterfaceDelegate, @unchecked Sendable {
     }
 
     func interfaceDidConnect(_ interface: any RNSInterface) {
-        // Could log or notify
+        // Notify Reticulum so it can re-announce destinations after reconnection.
+        if let callback = onInterfaceConnect {
+            Task { await callback() }
+        }
     }
 
     func interfaceDidDisconnect(_ interface: any RNSInterface, error: Error?) {

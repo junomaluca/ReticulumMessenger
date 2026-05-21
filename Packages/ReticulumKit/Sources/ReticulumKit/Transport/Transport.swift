@@ -49,6 +49,12 @@ public actor RNSTransport {
     private var recentPacketHashes: Set<Data> = []
     private var packetHashTimestamps: [(hash: Data, time: Date)] = []
 
+    /// Packet processing statistics for diagnostics.
+    public private(set) var packetsReceived: UInt64 = 0
+    public private(set) var packetsParseFailed: UInt64 = 0
+    public private(set) var packetsDeduplicated: UInt64 = 0
+    public private(set) var announcesProcessed: UInt64 = 0
+
     /// Pending path requests.
     private var pendingPathRequests: [Data: Date] = [:]
 
@@ -103,6 +109,22 @@ public actor RNSTransport {
         addInterface(interface)
     }
 
+    /// Whether at least one interface is currently online.
+    public var hasOnlineInterface: Bool {
+        interfaces.values.contains { $0.isOnline }
+    }
+
+    /// Wait until at least one interface is online (with timeout).
+    /// Returns true if an interface came online, false on timeout.
+    public func waitForOnlineInterface(timeout: TimeInterval = 10.0) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if hasOnlineInterface { return true }
+            try? await Task.sleep(nanoseconds: 250_000_000) // 250ms
+        }
+        return hasOnlineInterface
+    }
+
     /// Remove a network interface.
     public func removeInterface(name: String) {
         interfaces.removeValue(forKey: name)
@@ -123,6 +145,11 @@ public actor RNSTransport {
     /// Unregister a local destination.
     public func deregisterDestination(_ destination: RNSDestination) {
         destinations.removeValue(forKey: destination.hash)
+    }
+
+    /// Get all registered local destinations.
+    public func allDestinations() -> [RNSDestination] {
+        Array(destinations.values)
     }
 
     // MARK: - Announce Handling
@@ -266,13 +293,19 @@ public actor RNSTransport {
 
     /// Process an incoming packet from an interface.
     public func processIncoming(data: Data, from interfaceName: String) {
+        packetsReceived += 1
+
         guard let packet = try? RNSPacket.unpack(data) else {
+            packetsParseFailed += 1
             return
         }
 
         // Deduplication
         let hash = packet.packetHash
-        if recentPacketHashes.contains(hash) { return }
+        if recentPacketHashes.contains(hash) {
+            packetsDeduplicated += 1
+            return
+        }
         recentPacketHashes.insert(hash)
         packetHashTimestamps.append((hash: hash, time: Date()))
         cleanDeduplicationCache()
@@ -363,11 +396,15 @@ public actor RNSTransport {
     }
 
     private func handleAnnouncePacket(_ packet: RNSPacket, from interfaceName: String) {
+        announcesProcessed += 1
+
         // Parse announce data to extract identity
         let data = packet.data
         // Announce layout (Python reference): pubkey[64] | nameHash[10] | randomHash[10] | appData[?] | signature[64]
         let headerSize = RNS.identityKeySize + RNS.nameHashLength + RNS.randomHashLength  // 84
         let signatureSize = 64
+        // Accept announces with either 10-byte or 32-byte nameHash for compatibility
+        // with both Python peers and older Swift peers.
         let minSize = headerSize + signatureSize  // 148
         guard data.count >= minSize else { return }
 
@@ -548,7 +585,11 @@ public actor RNSTransport {
             onlineInterfaces: interfaces.values.filter { $0.isOnline }.count,
             knownPaths: pathTable.count,
             activeLinks: activeLinks.count,
-            pendingReceipts: pendingReceipts.count
+            pendingReceipts: pendingReceipts.count,
+            packetsReceived: packetsReceived,
+            packetsParseFailed: packetsParseFailed,
+            packetsDeduplicated: packetsDeduplicated,
+            announcesProcessed: announcesProcessed
         )
     }
 }
@@ -561,4 +602,8 @@ public struct TransportStatistics: Sendable {
     public let knownPaths: Int
     public let activeLinks: Int
     public let pendingReceipts: Int
+    public let packetsReceived: UInt64
+    public let packetsParseFailed: UInt64
+    public let packetsDeduplicated: UInt64
+    public let announcesProcessed: UInt64
 }

@@ -30,6 +30,9 @@ final class AppState: ObservableObject {
     // Announce stream
     @Published var announceStream: [AnnounceEntry] = []
 
+    // Diagnostics
+    @Published var packetDiagnostics: String = ""
+
     // Settings
     @Published var autoAnnounceEnabled = false
     @Published var transportModeEnabled = false
@@ -723,6 +726,7 @@ final class AppState: ObservableObject {
                     } else {
                         networkStatus = .connecting
                     }
+                    packetDiagnostics = "rx:\(stats.packetsReceived) fail:\(stats.packetsParseFailed) dup:\(stats.packetsDeduplicated) ann:\(stats.announcesProcessed)"
                 }
 
                 // Update RNode stats

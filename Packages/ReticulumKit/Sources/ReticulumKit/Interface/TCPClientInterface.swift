@@ -140,10 +140,11 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
 
     /// Check if this connection appears stale (no data exchanged recently).
     /// iOS can leave sockets in a half-dead state where `isOnline` is true
-    /// but no data flows.
+    /// but no data flows. Timeout is generous to avoid reconnection churn
+    /// on quiet networks where announces are infrequent.
     public var isStale: Bool {
         guard isOnline else { return false }
-        return Date().timeIntervalSince(lastActivityTime) > 30.0
+        return Date().timeIntervalSince(lastActivityTime) > 180.0
     }
 
     // MARK: - Connection Management

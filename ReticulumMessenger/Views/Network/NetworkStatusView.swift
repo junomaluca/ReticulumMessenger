@@ -75,6 +75,15 @@ struct NetworkStatusView: View {
                     }
                 }
 
+                // Packet Diagnostics
+                if !appState.packetDiagnostics.isEmpty {
+                    Section("Packet Stats") {
+                        Text(appState.packetDiagnostics)
+                            .font(.caption)
+                            .monospaced()
+                    }
+                }
+
                 // Quick Links
                 Section("Tools") {
                     NavigationLink {
