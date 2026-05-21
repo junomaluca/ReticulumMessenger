@@ -2,6 +2,7 @@
 // ReticulumMessenger — MessageBubble.swift
 
 import SwiftUI
+import AVFoundation
 
 struct MessageBubble: View {
     let message: ChatMessage
@@ -11,6 +12,8 @@ struct MessageBubble: View {
     var disappearingDuration: DisappearingDuration = .off
 
     @State private var showReactionPicker = false
+    @State private var isPlayingAudio = false
+    @State private var audioPlayer: AVAudioPlayer?
 
     private let reactionEmojis = ["👍", "❤️", "😂", "😮", "🔥", "🙏"]
 
@@ -32,9 +35,13 @@ struct MessageBubble: View {
                             .foregroundColor(.accentColor)
                     }
 
-                    Text(message.content)
-                        .font(.body)
-                        .foregroundColor(message.isIncoming ? .primary : .white)
+                    if let attachment = message.attachment {
+                        attachmentView(attachment)
+                    } else {
+                        Text(message.content)
+                            .font(.body)
+                            .foregroundColor(message.isIncoming ? .primary : .white)
+                    }
 
                     HStack(spacing: 4) {
                         if disappearingDuration != .off {
@@ -95,6 +102,74 @@ struct MessageBubble: View {
             if message.isIncoming { Spacer(minLength: 60) }
         }
         .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func attachmentView(_ attachment: ChatAttachment) -> some View {
+        if attachment.mimeType.hasPrefix("image/"),
+           let uiImage = UIImage(data: attachment.data) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 220, maxHeight: 220)
+                .cornerRadius(8)
+        } else if attachment.mimeType.hasPrefix("audio/") {
+            HStack(spacing: 10) {
+                Button {
+                    toggleAudioPlayback(attachment.data)
+                } label: {
+                    Image(systemName: isPlayingAudio ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(message.isIncoming ? .accentColor : .white)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Voice Message")
+                        .font(.caption.bold())
+                        .foregroundColor(message.isIncoming ? .primary : .white)
+                    Text(formatFileSize(attachment.data.count))
+                        .font(.caption2)
+                        .foregroundColor(message.isIncoming ? .secondary : .white.opacity(0.7))
+                }
+            }
+        } else {
+            // Generic file attachment
+            HStack(spacing: 8) {
+                Image(systemName: "doc.fill")
+                    .font(.title3)
+                    .foregroundColor(message.isIncoming ? .accentColor : .white)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(attachment.filename)
+                        .font(.caption.bold())
+                        .foregroundColor(message.isIncoming ? .primary : .white)
+                    Text(formatFileSize(attachment.data.count))
+                        .font(.caption2)
+                        .foregroundColor(message.isIncoming ? .secondary : .white.opacity(0.7))
+                }
+            }
+        }
+    }
+
+    private func toggleAudioPlayback(_ data: Data) {
+        if isPlayingAudio {
+            audioPlayer?.stop()
+            audioPlayer = nil
+            isPlayingAudio = false
+        } else {
+            do {
+                audioPlayer = try AVAudioPlayer(data: data)
+                audioPlayer?.play()
+                isPlayingAudio = true
+            } catch {
+                isPlayingAudio = false
+            }
+        }
+    }
+
+    private func formatFileSize(_ bytes: Int) -> String {
+        if bytes < 1024 { return "\(bytes) B" }
+        if bytes < 1024 * 1024 { return "\(bytes / 1024) KB" }
+        return String(format: "%.1f MB", Double(bytes) / (1024 * 1024))
     }
 
     private var reactionBar: some View {

@@ -17,6 +17,13 @@ struct MessageReaction: Codable, Equatable {
     }
 }
 
+/// Attachment metadata stored with a chat message.
+struct ChatAttachment: Codable, Equatable {
+    let filename: String
+    let mimeType: String
+    let data: Data
+}
+
 /// A single chat message within a conversation.
 struct ChatMessage: Identifiable, Codable {
     let id: UUID
@@ -29,6 +36,7 @@ struct ChatMessage: Identifiable, Codable {
     var reactions: [MessageReaction]
     var expiresAt: Date?
     var senderName: String?
+    var attachment: ChatAttachment?
 
     enum MessageState: String, Codable {
         case pending
@@ -51,7 +59,8 @@ struct ChatMessage: Identifiable, Codable {
         isRead: Bool = false,
         reactions: [MessageReaction] = [],
         expiresAt: Date? = nil,
-        senderName: String? = nil
+        senderName: String? = nil,
+        attachment: ChatAttachment? = nil
     ) {
         self.id = UUID()
         self.lxmfId = lxmfId
@@ -63,6 +72,7 @@ struct ChatMessage: Identifiable, Codable {
         self.reactions = reactions
         self.expiresAt = expiresAt
         self.senderName = senderName
+        self.attachment = attachment
     }
 
     /// Create from an LXMF message.
@@ -84,6 +94,17 @@ struct ChatMessage: Identifiable, Codable {
         self.reactions = []
         self.expiresAt = nil
         self.senderName = lxMessage.sourceName
+
+        // Capture first attachment if present
+        if let att = lxMessage.attachments.first {
+            self.attachment = ChatAttachment(
+                filename: att.name,
+                mimeType: att.mimeType,
+                data: att.data
+            )
+        } else {
+            self.attachment = nil
+        }
     }
 
     // Custom decoder for backward compatibility with older saved data
@@ -99,10 +120,11 @@ struct ChatMessage: Identifiable, Codable {
         reactions = try container.decodeIfPresent([MessageReaction].self, forKey: .reactions) ?? []
         expiresAt = try container.decodeIfPresent(Date.self, forKey: .expiresAt)
         senderName = try container.decodeIfPresent(String.self, forKey: .senderName)
+        attachment = try container.decodeIfPresent(ChatAttachment.self, forKey: .attachment)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, lxmfId, content, timestamp, isIncoming, state, isRead, reactions, expiresAt, senderName
+        case id, lxmfId, content, timestamp, isIncoming, state, isRead, reactions, expiresAt, senderName, attachment
     }
 
     mutating func toggleReaction(_ emoji: String, isLocal: Bool) {

@@ -420,18 +420,51 @@ public actor RNSTransport {
             announceData: packet.data
         )
 
-        // Python announce layout (no ratchet):
-        //   pubkey(64) | nameHash(10) | randomHash(10) | signature(64) | appData(?)
-        // Python announce layout (with ratchet, context flag set in header bit 5):
-        //   pubkey(64) | nameHash(10) | randomHash(10) | ratchet(32) | signature(64) | appData(?)
+        // Announce body layouts:
+        //   Python (new):  pubkey(64) | nameHash(10) | randomHash(10) | [ratchet(32)] | signature(64) | appData(?)
+        //   Old Swift:     pubkey(64) | nameHash(10) | randomHash(10) | appData(?) | signature(64)
+        //
+        // Detect format by verifying signature in both positions.
         let headerBase = RNS.identityKeySize + RNS.nameHashLength + RNS.randomHashLength  // 84
         let hasRatchet = packet.contextFlag && (data.count >= headerBase + 32 + signatureSize)
-        let sigOffset = hasRatchet ? headerBase + 32 : headerBase
-        let appDataOffset = sigOffset + signatureSize
+        let sigOffsetNew = hasRatchet ? headerBase + 32 : headerBase
+        let appDataOffsetNew = sigOffsetNew + signatureSize
 
-        // Extract optional app data AFTER the signature (Python layout).
-        let appData: Data? = data.count > appDataOffset ?
-            Data(data[appDataOffset...]) : nil
+        var appData: Data?
+
+        // Try Python/new format first: signature at sigOffsetNew, appData after
+        if data.count >= appDataOffsetNew {
+            let sigNew = Data(data[sigOffsetNew..<appDataOffsetNew])
+            let appDataNew: Data? = data.count > appDataOffsetNew ? Data(data[appDataOffsetNew...]) : nil
+
+            // Construct signed_data: destHash + pubkey + nameHash + randomHash + [ratchet] + appData
+            var signedData = Data()
+            signedData.append(packet.destinationHash)
+            signedData.append(data.prefix(sigOffsetNew))  // pubkey + nameHash + randomHash + [ratchet]
+            if let ad = appDataNew { signedData.append(ad) }
+
+            if identity.verify(signature: sigNew, for: signedData) {
+                appData = appDataNew
+            } else {
+                // Try old format: signature is last 64 bytes, appData in between
+                let sigOld = Data(data[(data.count - signatureSize)...])
+                let appDataOld: Data? = data.count > headerBase + signatureSize ?
+                    Data(data[headerBase..<(data.count - signatureSize)]) : nil
+
+                var signedDataOld = Data()
+                signedDataOld.append(packet.destinationHash)
+                signedDataOld.append(data.prefix(headerBase))
+                if let ad = appDataOld { signedDataOld.append(ad) }
+
+                if identity.verify(signature: sigOld, for: signedDataOld) {
+                    appData = appDataOld
+                } else {
+                    // Signature doesn't verify in either format; still extract
+                    // using new format as best-effort (may be a different app).
+                    appData = appDataNew
+                }
+            }
+        }
 
         // Notify announce handlers
         for handler in announceHandlers {
