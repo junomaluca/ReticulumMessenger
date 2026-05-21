@@ -57,6 +57,15 @@ public protocol RNSInterface: AnyObject, Sendable {
 
     /// Interface type identifier for display.
     var interfaceType: String { get }
+
+    /// Whether this is a stream-based interface (TCP) that can handle payloads
+    /// larger than the protocol MTU. Radio/UDP interfaces return false.
+    var isStreamInterface: Bool { get }
+}
+
+/// Default implementations for optional protocol properties.
+extension RNSInterface {
+    public var isStreamInterface: Bool { false }
 }
 
 /// Configuration for a network interface.

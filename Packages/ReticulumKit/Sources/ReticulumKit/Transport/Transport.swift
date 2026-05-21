@@ -254,17 +254,21 @@ public actor RNSTransport {
     public func sendPacket(_ packet: RNSPacket) async throws -> RNSPacketReceipt? {
         let raw = packet.pack()
 
-        // Check MTU
-        guard raw.count <= RNS.mtu else {
-            throw RNSPacketError.payloadTooLarge
-        }
-
         // Try to find a specific path
         if let path = findPath(to: packet.destinationHash),
            let interface = interfaces[path.interfaceName] {
+            // For directed sends over stream interfaces (TCP), the protocol
+            // MTU is not a hard limit since HDLC framing handles segmentation.
+            // Only enforce MTU for broadcast/radio where packet size matters.
+            if raw.count > RNS.mtu && !interface.isStreamInterface {
+                throw RNSPacketError.payloadTooLarge
+            }
             try await interface.send(raw)
         } else {
-            // No specific path — broadcast to all interfaces
+            // Broadcasting — enforce strict MTU since radio interfaces are limited
+            guard raw.count <= RNS.mtu else {
+                throw RNSPacketError.payloadTooLarge
+            }
             try await broadcastPacket(packet)
         }
 

@@ -28,6 +28,7 @@ public final class TCPClientInterface: RNSInterface, @unchecked Sendable {
     public private(set) var bytesSent: UInt64 = 0
     public private(set) var bytesReceived: UInt64 = 0
     public var interfaceType: String { "TCPClient" }
+    public var isStreamInterface: Bool { true }
 
     public var isOnline: Bool {
         if case .connected = status { return true }
