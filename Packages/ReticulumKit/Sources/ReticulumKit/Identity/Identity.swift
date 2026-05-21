@@ -22,11 +22,16 @@ public final class RNSIdentity: Identifiable, Sendable {
     /// X25519 key agreement public key.
     public let encryptionPublicKey: Curve25519.KeyAgreement.PublicKey
 
-    /// Combined public key bytes: Ed25519 pub (32 bytes) + X25519 pub (32 bytes).
+    /// Combined public key bytes in Python RNS wire order:
+    /// X25519 agreement pub (32 bytes) || Ed25519 signing pub (32 bytes).
+    /// The order matches `RNS.Identity.get_public_key()` which is
+    /// `self.pub_bytes (X25519) + self.sig_pub_bytes (Ed25519)`. Reversing this
+    /// order makes Python `validate_announce()` use the wrong 32 bytes as the
+    /// Ed25519 verification key and every announce is silently dropped.
     public var publicKeyBytes: Data {
         var data = Data()
-        data.append(contentsOf: signingPublicKey.rawRepresentation)
         data.append(contentsOf: encryptionPublicKey.rawRepresentation)
+        data.append(contentsOf: signingPublicKey.rawRepresentation)
         return data
     }
 
@@ -66,13 +71,14 @@ public final class RNSIdentity: Identifiable, Sendable {
     }
 
     /// Create a receive-only identity from public key bytes.
-    /// - Parameter publicKeyBytes: 64-byte combined public key (Ed25519 + X25519).
+    /// - Parameter publicKeyBytes: 64-byte combined public key in Python RNS wire order:
+    ///   X25519 agreement pub (32 bytes) || Ed25519 signing pub (32 bytes).
     public init(publicKeyBytes: Data) throws {
         guard publicKeyBytes.count == RNS.identityKeySize else {
             throw RNSIdentityError.invalidPublicKeySize
         }
-        let sigPubBytes = publicKeyBytes.prefix(RNS.keySize)
-        let encPubBytes = publicKeyBytes.suffix(RNS.keySize)
+        let encPubBytes = publicKeyBytes.prefix(RNS.keySize)
+        let sigPubBytes = publicKeyBytes.suffix(RNS.keySize)
 
         self.signingPublicKey = try Curve25519.Signing.PublicKey(rawRepresentation: sigPubBytes)
         self.encryptionPublicKey = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: encPubBytes)
@@ -116,8 +122,9 @@ public final class RNSIdentity: Identifiable, Sendable {
     // MARK: - Encryption
 
     /// Encrypt data so only this identity can decrypt it.
-    /// Uses ephemeral X25519 key exchange + Fernet encryption.
-    /// - Returns: Encrypted token prefixed with the ephemeral public key (32 bytes).
+    /// Matches Python `RNS.Identity.encrypt`: ephemeral X25519 ECDH → HKDF-SHA256
+    /// (64 bytes, salt = identity.hash) → RNSToken (AES-256-CBC + HMAC-SHA256).
+    /// - Returns: `ephemeral_pub(32) || token`.
     public func encrypt(_ plaintext: Data) throws -> Data {
         let ephemeral = Curve25519.KeyAgreement.PrivateKey()
         let shared = try RNSCrypto.x25519(
@@ -126,10 +133,11 @@ public final class RNSIdentity: Identifiable, Sendable {
         )
         let derivedKey = RNSCrypto.hkdf(
             inputKeyMaterial: shared,
+            salt: hash,
             info: Data(),
-            outputByteCount: 32
+            outputByteCount: 64
         )
-        let token = try RNSFernet.encrypt(plaintext: plaintext, key: derivedKey)
+        let token = try RNSToken.encrypt(plaintext: plaintext, key: derivedKey)
 
         var result = Data()
         result.append(contentsOf: ephemeral.publicKey.rawRepresentation)
@@ -138,7 +146,7 @@ public final class RNSIdentity: Identifiable, Sendable {
     }
 
     /// Decrypt data that was encrypted to this identity.
-    /// - Parameter ciphertext: Ephemeral public key (32 bytes) + Fernet token.
+    /// - Parameter ciphertext: `ephemeral_pub(32) || token`.
     public func decrypt(_ ciphertext: Data) throws -> Data {
         guard let privateKey = encryptionPrivateKey else {
             throw RNSIdentityError.noPrivateKey
@@ -156,11 +164,12 @@ public final class RNSIdentity: Identifiable, Sendable {
         let shared = try RNSCrypto.x25519(privateKey: privateKey, publicKey: ephemeralPub)
         let derivedKey = RNSCrypto.hkdf(
             inputKeyMaterial: shared,
+            salt: hash,
             info: Data(),
-            outputByteCount: 32
+            outputByteCount: 64
         )
 
-        return try RNSFernet.decrypt(token: Data(token), key: derivedKey)
+        return try RNSToken.decrypt(token: Data(token), key: derivedKey)
     }
 
     // MARK: - Serialization

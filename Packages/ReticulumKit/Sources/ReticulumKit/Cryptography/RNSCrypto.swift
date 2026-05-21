@@ -205,6 +205,74 @@ public enum RNSCrypto {
         return plaintext
     }
 
+    // MARK: - AES-256-CBC
+
+    /// Encrypt data using AES-256-CBC with PKCS7 padding. Key must be 32 bytes.
+    public static func aes256CBCEncrypt(key: Data, iv: Data, plaintext: Data) throws -> Data {
+        guard key.count == 32 else { throw RNSCryptoError.invalidKeySize }
+        guard iv.count == 16 else { throw RNSCryptoError.invalidIVSize }
+
+        let bufferSize = plaintext.count + kCCBlockSizeAES128
+        var ciphertext = Data(count: bufferSize)
+        var numBytesEncrypted: size_t = 0
+        let status = ciphertext.withUnsafeMutableBytes { cipherBuf in
+            key.withUnsafeBytes { keyBuf in
+                iv.withUnsafeBytes { ivBuf in
+                    plaintext.withUnsafeBytes { plainBuf in
+                        CCCrypt(
+                            CCOperation(kCCEncrypt),
+                            CCAlgorithm(kCCAlgorithmAES),
+                            CCOptions(kCCOptionPKCS7Padding),
+                            keyBuf.baseAddress, key.count,
+                            ivBuf.baseAddress,
+                            plainBuf.baseAddress, plaintext.count,
+                            cipherBuf.baseAddress, bufferSize,
+                            &numBytesEncrypted
+                        )
+                    }
+                }
+            }
+        }
+        guard status == kCCSuccess else {
+            throw RNSCryptoError.encryptionFailed(status: Int(status))
+        }
+        ciphertext.removeSubrange(numBytesEncrypted..<ciphertext.count)
+        return ciphertext
+    }
+
+    /// Decrypt data using AES-256-CBC with PKCS7 padding. Key must be 32 bytes.
+    public static func aes256CBCDecrypt(key: Data, iv: Data, ciphertext: Data) throws -> Data {
+        guard key.count == 32 else { throw RNSCryptoError.invalidKeySize }
+        guard iv.count == 16 else { throw RNSCryptoError.invalidIVSize }
+
+        let bufferSize = ciphertext.count + kCCBlockSizeAES128
+        var plaintext = Data(count: bufferSize)
+        var numBytesDecrypted: size_t = 0
+        let status = plaintext.withUnsafeMutableBytes { plainBuf in
+            key.withUnsafeBytes { keyBuf in
+                iv.withUnsafeBytes { ivBuf in
+                    ciphertext.withUnsafeBytes { cipherBuf in
+                        CCCrypt(
+                            CCOperation(kCCDecrypt),
+                            CCAlgorithm(kCCAlgorithmAES),
+                            CCOptions(kCCOptionPKCS7Padding),
+                            keyBuf.baseAddress, key.count,
+                            ivBuf.baseAddress,
+                            cipherBuf.baseAddress, ciphertext.count,
+                            plainBuf.baseAddress, bufferSize,
+                            &numBytesDecrypted
+                        )
+                    }
+                }
+            }
+        }
+        guard status == kCCSuccess else {
+            throw RNSCryptoError.decryptionFailed(status: Int(status))
+        }
+        plaintext.removeSubrange(numBytesDecrypted..<plaintext.count)
+        return plaintext
+    }
+
     // MARK: - Random
 
     /// Generate cryptographically secure random bytes.
@@ -217,84 +285,105 @@ public enum RNSCrypto {
     }
 }
 
-// MARK: - Fernet Token (Reticulum-compatible)
+// MARK: - Legacy 32-byte Link crypto (Swift Link layer only)
 
-/// Fernet-style authenticated encryption as used by Reticulum.
-/// Format: version(1) || timestamp(8) || IV(16) || ciphertext(variable) || HMAC(32)
-public struct RNSFernet {
-
-    private static let version: UInt8 = 0x80
-    private static let versionSize = 1
-    private static let timestampSize = 8
+/// Authenticated encryption used by the Swift `RNSLink` implementation.
+/// 32-byte key split as 16/16 (HMAC/AES-128). Distinct from `RNSToken`,
+/// which is the Python-RNS-compatible Identity wire format.
+/// Format: `IV(16) || AES-128-CBC(PKCS7(plaintext)) || HMAC-SHA256(32)`.
+public struct RNSLinkCipher {
     private static let ivSize = 16
     private static let hmacSize = 32
 
-    /// Encrypt and authenticate data using a 32-byte key.
-    /// The key is split: first 16 bytes for HMAC signing, last 16 bytes for AES encryption.
     public static func encrypt(plaintext: Data, key: Data) throws -> Data {
-        guard key.count == 32 else {
-            throw RNSCryptoError.invalidKeySize
-        }
-
+        guard key.count == 32 else { throw RNSCryptoError.invalidKeySize }
         let signingKey = key.prefix(16)
         let encryptionKey = key.suffix(16)
+        let iv = RNSCrypto.randomBytes(count: ivSize)
+        let ciphertext = try RNSCrypto.aes128CBCEncrypt(key: encryptionKey, iv: iv, plaintext: plaintext)
+        var body = Data()
+        body.append(iv)
+        body.append(ciphertext)
+        let hmac = RNSCrypto.hmacSHA256(key: signingKey, data: body)
+        body.append(hmac)
+        return body
+    }
+
+    public static func decrypt(token: Data, key: Data) throws -> Data {
+        guard key.count == 32 else { throw RNSCryptoError.invalidKeySize }
+        guard token.count > ivSize + hmacSize else { throw RNSCryptoError.invalidToken }
+        let signingKey = key.prefix(16)
+        let encryptionKey = key.suffix(16)
+        let hmacOffset = token.count - hmacSize
+        let body = token.prefix(hmacOffset)
+        let receivedHMAC = token.suffix(hmacSize)
+        guard RNSCrypto.verifyHMAC(key: signingKey, data: body, mac: receivedHMAC) else {
+            throw RNSCryptoError.authenticationFailed
+        }
+        let iv = token.prefix(ivSize)
+        let ciphertext = token[ivSize..<hmacOffset]
+        return try RNSCrypto.aes128CBCDecrypt(key: encryptionKey, iv: Data(iv), ciphertext: Data(ciphertext))
+    }
+}
+
+// MARK: - Reticulum Token (Python RNS-compatible)
+
+/// Reticulum's `Token` authenticated-encryption format.
+/// Wire format: `IV(16) || AES-256-CBC(PKCS7(plaintext)) || HMAC-SHA256(32)`.
+/// No version byte, no timestamp — this matches the Python reference
+/// (`RNS.Cryptography.Token`). The 64-byte key is split: first 32 bytes
+/// for HMAC signing, last 32 bytes for AES-256.
+public struct RNSToken {
+
+    private static let ivSize = 16
+    private static let hmacSize = 32
+    private static let keySize = 64
+
+    /// Encrypt and authenticate `plaintext` using a 64-byte derived key.
+    public static func encrypt(plaintext: Data, key: Data) throws -> Data {
+        guard key.count == keySize else {
+            throw RNSCryptoError.invalidKeySize
+        }
+        let signingKey = key.prefix(32)
+        let encryptionKey = key.suffix(32)
 
         let iv = RNSCrypto.randomBytes(count: ivSize)
-
-        let timestamp = UInt64(Date().timeIntervalSince1970)
-        var timestampBytes = Data(count: timestampSize)
-        for i in 0..<timestampSize {
-            timestampBytes[timestampSize - 1 - i] = UInt8((timestamp >> (i * 8)) & 0xFF)
-        }
-
-        let ciphertext = try RNSCrypto.aes128CBCEncrypt(
+        let ciphertext = try RNSCrypto.aes256CBCEncrypt(
             key: encryptionKey,
             iv: iv,
             plaintext: plaintext
         )
 
-        // Token without HMAC: version || timestamp || IV || ciphertext
-        var token = Data()
-        token.append(version)
-        token.append(timestampBytes)
-        token.append(iv)
-        token.append(ciphertext)
-
-        // Compute HMAC over everything
-        let hmac = RNSCrypto.hmacSHA256(key: signingKey, data: token)
-        token.append(hmac)
-
-        return token
+        var body = Data()
+        body.append(iv)
+        body.append(ciphertext)
+        let hmac = RNSCrypto.hmacSHA256(key: signingKey, data: body)
+        body.append(hmac)
+        return body
     }
 
-    /// Decrypt and verify a Fernet token using a 32-byte key.
+    /// Decrypt and verify a `Token` blob using a 64-byte derived key.
     public static func decrypt(token: Data, key: Data) throws -> Data {
-        guard key.count == 32 else {
+        guard key.count == keySize else {
             throw RNSCryptoError.invalidKeySize
         }
-        guard token.count >= versionSize + timestampSize + ivSize + hmacSize else {
+        guard token.count > ivSize + hmacSize else {
             throw RNSCryptoError.invalidToken
         }
-        guard token[0] == version else {
-            throw RNSCryptoError.invalidToken
-        }
-
-        let signingKey = key.prefix(16)
-        let encryptionKey = key.suffix(16)
+        let signingKey = key.prefix(32)
+        let encryptionKey = key.suffix(32)
 
         let hmacOffset = token.count - hmacSize
-        let tokenBody = token.prefix(hmacOffset)
+        let body = token.prefix(hmacOffset)
         let receivedHMAC = token.suffix(hmacSize)
 
-        guard RNSCrypto.verifyHMAC(key: signingKey, data: tokenBody, mac: receivedHMAC) else {
+        guard RNSCrypto.verifyHMAC(key: signingKey, data: body, mac: receivedHMAC) else {
             throw RNSCryptoError.authenticationFailed
         }
 
-        let ivStart = versionSize + timestampSize
-        let iv = token[ivStart..<(ivStart + ivSize)]
-        let ciphertext = token[(ivStart + ivSize)..<hmacOffset]
-
-        return try RNSCrypto.aes128CBCDecrypt(
+        let iv = token.prefix(ivSize)
+        let ciphertext = token[ivSize..<hmacOffset]
+        return try RNSCrypto.aes256CBCDecrypt(
             key: encryptionKey,
             iv: Data(iv),
             ciphertext: Data(ciphertext)

@@ -84,17 +84,27 @@ public struct RNSPacket: Sendable {
     }
 
     /// Create a data packet to a destination.
+    /// For `.single` destinations with an identity, the payload is encrypted
+    /// to the destination's identity (matching Python `Packet.pack`). If
+    /// encryption isn't possible the raw bytes are sent; the receiver will
+    /// either decrypt or fall back to legacy plaintext.
     public static func data(
         to destination: RNSDestination,
         data: Data,
         context: RNS.PacketContext = .none
     ) -> RNSPacket {
-        RNSPacket(
+        var payload = data
+        if destination.type == .single, destination.identity != nil {
+            if let ciphertext = try? destination.encrypt(data) {
+                payload = ciphertext
+            }
+        }
+        return RNSPacket(
             destinationType: destination.type,
             packetType: .data,
             destinationHash: destination.hash,
             context: context,
-            data: data
+            data: payload
         )
     }
 

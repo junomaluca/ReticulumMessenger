@@ -90,10 +90,16 @@ public actor RNSTransport {
     private var pathResponseWaiters: [Data: [UUID: CheckedContinuation<Bool, Never>]] = [:]
 
     /// Destination hash for the well-known path request destination.
-    /// Matches the Python reference: PLAIN destination hash = SHA256(name)[:16].
-    /// For PLAIN destinations, the hash is simply the truncated full hash of the name.
+    /// Python RNS computes a PLAIN destination hash as:
+    ///   name_hash = SHA256(full_name)[:nameHashLength]   // 10 bytes
+    ///   hash      = SHA256(name_hash)[:truncatedHashLength]  // 16 bytes
+    /// Computing SHA256(name)[:16] directly is wrong and yields a hash no other
+    /// RNS node will recognize, causing path requests to be silently dropped
+    /// on both inbound and outbound paths.
     private static let pathRequestDestinationHash: Data = {
-        Data(RNSCrypto.sha256(Data("rnstransport.path.request".utf8)).prefix(RNS.truncatedHashLength))
+        let name = "rnstransport.path.request"
+        let nameHash = Data(RNSCrypto.sha256(Data(name.utf8)).prefix(RNS.nameHashLength))
+        return Data(RNSCrypto.sha256(nameHash).prefix(RNS.truncatedHashLength))
     }()
 
     // MARK: - Initialization

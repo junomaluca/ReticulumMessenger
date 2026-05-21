@@ -220,8 +220,12 @@ public actor LXMRouter {
         return msg.id
     }
 
-    /// Attempt direct delivery via a link.
+    /// Attempt direct delivery via a single encrypted packet.
     /// Uses transport's waitForPath() with proper timeout instead of a fixed sleep.
+    /// When the recipient's identity is known (from a prior announce), we build
+    /// an identity-bearing destination so `RNSPacket.data()` encrypts to it,
+    /// matching Python reference clients. Without an identity we still send raw
+    /// bytes (legacy iOS-to-iOS path).
     private func deliverDirect(_ message: LXMessage) async throws {
         let destHash = message.destinationHash
 
@@ -229,19 +233,27 @@ public actor LXMRouter {
         let hasPath = await reticulum.transport.hasPath(to: destHash)
         if !hasPath {
             try await reticulum.transport.requestPath(to: destHash)
-            // Wait for path response with timeout (improved from fixed 2s sleep)
             let pathFound = await reticulum.transport.waitForPath(to: destHash, timeout: 10.0)
             if !pathFound {
                 throw LXMFError.noRoute
             }
         }
 
-        // Create destination and send
-        let destination = RNSDestination(
-            hash: destHash,
-            type: .single,
-            appName: "\(Self.appName).\(Self.deliveryAspect)"
-        )
+        let destination: RNSDestination
+        if let peer = peers[destHash] {
+            destination = RNSDestination(
+                identity: peer.identity,
+                type: .single,
+                appName: Self.appName,
+                aspects: [Self.deliveryAspect]
+            )
+        } else {
+            destination = RNSDestination(
+                hash: destHash,
+                type: .single,
+                appName: "\(Self.appName).\(Self.deliveryAspect)"
+            )
+        }
 
         let serialized = message.serialize()
         _ = try await reticulum.send(data: serialized, to: destination)
@@ -262,27 +274,51 @@ public actor LXMRouter {
     // MARK: - Receiving
 
     /// Handle an incoming packet on the delivery destination.
+    /// Tries to decrypt the payload with our identity (Python-RNS compatible
+    /// senders encrypt to us). Falls back to the raw bytes for legacy
+    /// iOS-to-iOS senders that never encrypted.
     private func handleIncomingPacket(_ packet: RNSPacket) {
         packetsReceived += 1
 
+        let plaintext: Data
+        if let decrypted = try? deliveryDestination?.decrypt(packet.data) {
+            plaintext = decrypted
+        } else {
+            plaintext = packet.data
+        }
+
         do {
-            let message = try LXMessage.deserialize(packet.data)
+            let message = try LXMessage.deserialize(plaintext)
             messagesDelivered += 1
             dispatchReceivedMessage(message)
         } catch {
             deserializeFailures += 1
-            lastDeserializeError = "\(error.localizedDescription) (pkt \(packet.data.count)B, first: \(packet.data.prefix(4).map { String(format: "%02x", $0) }.joined()))"
+            lastDeserializeError = "\(error.localizedDescription) (pkt \(packet.data.count)B, plain \(plaintext.count)B, first: \(plaintext.prefix(4).map { String(format: "%02x", $0) }.joined()))"
         }
     }
 
-    /// Handle an incoming link (for direct delivery).
+    /// Handle an incoming link (for direct delivery via Resource).
     private func handleIncomingLink(_ link: RNSLink) {
         link.dataCallback = { [weak self] data in
-            guard let message = try? LXMessage.deserialize(data) else { return }
+            guard let self = self else { return }
             Task { [weak self] in
-                await self?.dispatchReceivedMessage(message)
+                guard let self = self else { return }
+                let plaintext: Data
+                if let decrypted = try? await self.tryDecrypt(data) {
+                    plaintext = decrypted
+                } else {
+                    plaintext = data
+                }
+                if let message = try? LXMessage.deserialize(plaintext) {
+                    await self.dispatchReceivedMessage(message)
+                }
             }
         }
+    }
+
+    private func tryDecrypt(_ data: Data) async throws -> Data {
+        guard let dest = deliveryDestination else { throw LXMFError.encryptionFailed }
+        return try dest.decrypt(data)
     }
 
     /// Dispatch a received message to handlers.

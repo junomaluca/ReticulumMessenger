@@ -234,7 +234,7 @@ public final class RNSLink: @unchecked Sendable {
         }
 
         lastActivity = Date()
-        return try RNSFernet.encrypt(plaintext: data, key: key)
+        return try RNSLinkCipher.encrypt(plaintext: data, key: key)
     }
 
     /// Receive and decrypt data on this link.
@@ -244,7 +244,7 @@ public final class RNSLink: @unchecked Sendable {
 
         lastActivity = Date()
 
-        if let plaintext = try? RNSFernet.decrypt(token: packet.data, key: key) {
+        if let plaintext = try? RNSLinkCipher.decrypt(token: packet.data, key: key) {
             dataCallback?(plaintext)
             channel?.handleIncoming(plaintext)
         }
