@@ -74,6 +74,13 @@ public actor RNSTransport {
     /// Path response continuations waiting for paths, keyed by destination hash then waiter UUID.
     private var pathResponseWaiters: [Data: [UUID: CheckedContinuation<Bool, Never>]] = [:]
 
+    /// Destination hash for the well-known path request destination.
+    /// Matches the Python reference: PLAIN destination hash = SHA256(name)[:16].
+    /// For PLAIN destinations, the hash is simply the truncated full hash of the name.
+    private static let pathRequestDestinationHash: Data = {
+        Data(RNSCrypto.sha256(Data("rnstransport.path.request".utf8)).prefix(RNS.truncatedHashLength))
+    }()
+
     // MARK: - Initialization
 
     public init() {}
@@ -154,6 +161,9 @@ public actor RNSTransport {
     }
 
     /// Request a path to a destination from the network.
+    /// Sends a broadcast path request matching the Python reference protocol:
+    /// destination = well-known "rnstransport.path.request" PLAIN hash,
+    /// context = .pathResponse, data = the destination hash being sought.
     public func requestPath(to destinationHash: Data) async throws {
         // Check if we already have a pending request
         if let lastRequest = pendingPathRequests[destinationHash],
@@ -163,12 +173,12 @@ public actor RNSTransport {
 
         pendingPathRequests[destinationHash] = Date()
 
-        // Create a path request packet
+        // Create a path request packet using the protocol-compatible destination hash.
         let packet = RNSPacket(
             propagationType: .broadcast,
             destinationType: .plain,
             packetType: .data,
-            destinationHash: RNSCrypto.truncatedHash(Data("path.request".utf8)),
+            destinationHash: Self.pathRequestDestinationHash,
             context: .pathResponse,
             data: destinationHash
         )
@@ -282,15 +292,24 @@ public actor RNSTransport {
     // MARK: - Packet Handlers
 
     private func handleDataPacket(_ packet: RNSPacket, from interfaceName: String) {
-        // Handle path response packets
+        // Both path requests and path responses use context .pathResponse (0x0B).
+        // Differentiate by checking the destination hash:
+        // - If destHash == pathRequestDestinationHash → incoming PATH REQUEST
+        // - Otherwise → incoming PATH RESPONSE
         if packet.context == .pathResponse && packet.data.count >= RNS.truncatedHashLength {
-            let respondedHash = Data(packet.data.prefix(RNS.truncatedHashLength))
-            registerPath(
-                destinationHash: respondedHash,
-                nextHop: nil,
-                interfaceName: interfaceName,
-                hops: packet.hops
-            )
+            if packet.destinationHash == Self.pathRequestDestinationHash {
+                // Incoming PATH REQUEST — another node is looking for a destination.
+                handlePathRequest(packet, from: interfaceName)
+            } else {
+                // Incoming PATH RESPONSE — someone answered our path request.
+                let respondedHash = Data(packet.data.prefix(RNS.truncatedHashLength))
+                registerPath(
+                    destinationHash: respondedHash,
+                    nextHop: nil,
+                    interfaceName: interfaceName,
+                    hops: packet.hops
+                )
+            }
             return
         }
 
@@ -305,10 +324,52 @@ public actor RNSTransport {
         }
     }
 
+    /// Handle an incoming path request from another node.
+    /// If we host the requested destination, respond with an announce
+    /// (matching the Python reference behavior). If transport mode is
+    /// enabled and we have a cached path, forward a path response.
+    private func handlePathRequest(_ packet: RNSPacket, from interfaceName: String) {
+        let requestedHash = Data(packet.data.prefix(RNS.truncatedHashLength))
+
+        // Check if we host this destination locally
+        if let destination = destinations[requestedHash] {
+            // Respond with an announce for this destination — this is what the
+            // Python reference implementation does. The announce carries the full
+            // identity (public keys) needed for encryption and establishes the path.
+            if let announceData = try? destination.announce() {
+                let announcePacket = RNSPacket.announce(from: destination, data: announceData)
+                Task { [weak self] in
+                    _ = try? await self?.sendPacket(announcePacket)
+                }
+            }
+            return
+        }
+
+        // If transport mode is enabled, check our path table for a cached path
+        // and forward a path response on behalf of the destination.
+        if transportEnabled, findPath(to: requestedHash) != nil {
+            let response = RNSPacket(
+                propagationType: .broadcast,
+                destinationType: .plain,
+                packetType: .data,
+                destinationHash: requestedHash,
+                context: .pathResponse,
+                data: requestedHash
+            )
+            Task { [weak self] in
+                try? await self?.broadcastPacket(response)
+            }
+        }
+    }
+
     private func handleAnnouncePacket(_ packet: RNSPacket, from interfaceName: String) {
         // Parse announce data to extract identity
         let data = packet.data
-        guard data.count >= RNS.identityKeySize + 32 + 10 + 64 else { return }
+        // Announce layout (Python reference): pubkey[64] | nameHash[10] | randomHash[10] | appData[?] | signature[64]
+        let headerSize = RNS.identityKeySize + RNS.nameHashLength + RNS.randomHashLength  // 84
+        let signatureSize = 64
+        let minSize = headerSize + signatureSize  // 148
+        guard data.count >= minSize else { return }
 
         let pubKeyBytes = data.prefix(RNS.identityKeySize)
         guard let identity = try? RNSIdentity(publicKeyBytes: Data(pubKeyBytes)) else { return }
@@ -322,12 +383,7 @@ public actor RNSTransport {
             announceData: packet.data
         )
 
-        // Extract optional app data.
-        // Packet layout: pubkey[64] | nameHash[32] | randomHash[10] | appData[?] | signature[64]
-        // appData sits between the fixed header and the trailing Ed25519 signature.
-        let headerSize = RNS.identityKeySize + 32 + 10  // 106
-        let signatureSize = 64
-        let minSize = headerSize + signatureSize         // 170
+        // Extract optional app data between the fixed header and trailing signature.
         let appData: Data? = data.count > minSize ?
             Data(data[headerSize..<(data.count - signatureSize)]) : nil
 

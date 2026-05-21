@@ -179,23 +179,28 @@ public final class RNSIdentity: Identifiable, Sendable {
     // MARK: - Announce
 
     /// Create an announce payload for this identity.
-    /// Format: public_keys (64) + name_hash (32) + random_hash (10) + signature
-    public func createAnnounce(appName: String, appData: Data? = nil) throws -> Data {
+    /// Format: public_keys (64) + name_hash (10) + random_hash (10) + [app_data] + signature (64)
+    /// Signature is over: destination_hash + announce_body (matching Python reference).
+    public func createAnnounce(appName: String, destinationHash: Data, appData: Data? = nil) throws -> Data {
         let nameHash = RNSCrypto.nameHash(appName)
-        let randomHash = RNSCrypto.randomBytes(count: 10)
+        let randomHash = RNSCrypto.randomBytes(count: RNS.randomHashLength)
 
-        var signedPart = Data()
-        signedPart.append(publicKeyBytes)
-        signedPart.append(nameHash)
-        signedPart.append(randomHash)
+        var announceBody = Data()
+        announceBody.append(publicKeyBytes)
+        announceBody.append(nameHash)
+        announceBody.append(randomHash)
         if let appData = appData {
-            signedPart.append(appData)
+            announceBody.append(appData)
         }
 
-        let signature = try sign(signedPart)
+        // Sign: destinationHash + announceBody (Python reference includes dest hash)
+        var signedData = Data()
+        signedData.append(destinationHash)
+        signedData.append(announceBody)
+        let signature = try sign(signedData)
 
         var announce = Data()
-        announce.append(signedPart)
+        announce.append(announceBody)
         announce.append(signature)
         return announce
     }

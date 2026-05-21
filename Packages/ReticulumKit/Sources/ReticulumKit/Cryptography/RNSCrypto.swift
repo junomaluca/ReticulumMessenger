@@ -25,9 +25,11 @@ public enum RNSCrypto {
         sha256(data).prefix(RNS.truncatedHashLength)
     }
 
-    /// Compute the full name hash used in destination addressing.
+    /// Compute the truncated name hash used in destination addressing and announces.
+    /// Returns the first 10 bytes (80 bits) of SHA-256, matching the Python reference
+    /// Identity.NAME_HASH_LENGTH // 8.
     public static func nameHash(_ appName: String) -> Data {
-        sha256(Data(appName.utf8))
+        Data(sha256(Data(appName.utf8)).prefix(RNS.nameHashLength))
     }
 
     // MARK: - Key Generation

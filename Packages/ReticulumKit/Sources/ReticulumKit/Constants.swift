@@ -108,6 +108,14 @@ public enum RNS {
     public static let linkKeepaliveInterval: TimeInterval = 360.0
     public static let linkStaleTime: TimeInterval = 720.0
 
+    // MARK: - Announce Constants
+
+    /// Name hash length in the announce payload (80 bits = 10 bytes).
+    /// Matches Python reference: Identity.NAME_HASH_LENGTH = 80.
+    public static let nameHashLength = 10
+    /// Random hash length in the announce payload (80 bits = 10 bytes).
+    public static let randomHashLength = 10
+
     // MARK: - Transport Constants
 
     public static let announceCapExponent: UInt8 = 2

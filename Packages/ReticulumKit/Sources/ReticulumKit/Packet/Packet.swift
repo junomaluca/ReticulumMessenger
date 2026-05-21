@@ -126,7 +126,8 @@ public struct RNSPacket: Sendable {
     public func pack() -> Data {
         var result = Data()
 
-        // Header byte: [IF+HeaderType:2][PropType:2][DestType:2][PacketType:2]
+        // Header byte: [IFAC:1][HeaderType:1][PropType:2][DestType:2][PacketType:2]
+        // IFAC flag (bit 7) is always 0 — we don't use Interface Access Codes.
         let header: UInt8 =
             (headerType.rawValue << 6) |
             (propagationType.rawValue << 4) |
@@ -165,7 +166,15 @@ public struct RNSPacket: Sendable {
         let header = rawData[0]
         let hops = rawData[1]
 
-        let headerTypeRaw = (header >> 6) & 0x03
+        // Bit 7 is the IFAC flag (Interface Access Code). We don't support IFAC
+        // processing, but must not conflate it with the header type (bit 6 only).
+        let ifacFlag = (header >> 7) & 0x01
+        if ifacFlag == 1 {
+            // IFAC-tagged packets can't be parsed without the IFAC key/size config.
+            throw RNSPacketError.tooShort
+        }
+
+        let headerTypeRaw = (header >> 6) & 0x01
         let propTypeRaw = (header >> 4) & 0x03
         let destTypeRaw = (header >> 2) & 0x03
         let pktTypeRaw = header & 0x03

@@ -126,7 +126,7 @@ public final class RNSDestination: @unchecked Sendable {
         guard let identity = identity, identity.hasPrivateKeys else {
             throw RNSDestinationError.cannotAnnounce
         }
-        return try identity.createAnnounce(appName: fullAppName, appData: appData)
+        return try identity.createAnnounce(appName: fullAppName, destinationHash: hash, appData: appData)
     }
 
     // MARK: - Types
