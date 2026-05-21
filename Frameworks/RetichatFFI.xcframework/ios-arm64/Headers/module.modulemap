@@ -1,0 +1,4 @@
+module RetichatFFI {
+    header "CRetichatFFI.h"
+    export *
+}

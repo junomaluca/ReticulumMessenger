@@ -27,6 +27,10 @@ targets:
         product: ReticulumKit
       - package: ReticulumKit
         product: LXMFKit
+      - framework: Frameworks/RetichatFFI.xcframework
+        embed: true
+      - sdk: IOKit.framework
+      - sdk: CoreBluetooth.framework
     settings:
       base:
         INFOPLIST_FILE: ReticulumMessenger/Info.plist
@@ -39,6 +43,7 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_IDENTITY: "Apple Development"
         CODE_SIGN_STYLE: "Automatic"
+        SWIFT_OBJC_BRIDGING_HEADER: ReticulumMessenger/ReticulumMessenger-Bridging-Header.h
 
   ReticulumMessengerTests:
     type: bundle.unit-test
