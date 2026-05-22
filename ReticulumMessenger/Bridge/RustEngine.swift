@@ -85,6 +85,10 @@ final class RustEngine: @unchecked Sendable {
         try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: storage,   withIntermediateDirectories: true)
 
+        // Without this, RNS would seed the config with only an AutoInterface
+        // (link-local IPv6 multicast) — no way to reach the wider testnet.
+        Self.seedDefaultConfigIfMissing(at: configDir.appendingPathComponent("config"))
+
         let createIdentity: Int32 = FileManager.default.fileExists(atPath: identity.path) ? 0 : 1
 
         let h = configDir.path.withCString { cfgPtr in
@@ -248,6 +252,40 @@ final class RustEngine: @unchecked Sendable {
     }
 
     // MARK: - Helpers
+
+    /// Write a default Reticulum config to `url` if no config exists there yet.
+    /// Includes the MichMesh testnet TCP hub so a fresh install can actually
+    /// reach the wider network on first launch. If the file already exists
+    /// (because the user edited it or the FFI already seeded one) we leave
+    /// it alone.
+    private static func seedDefaultConfigIfMissing(at url: URL) {
+        guard !FileManager.default.fileExists(atPath: url.path) else { return }
+        let body = """
+        # Seeded by ReticulumMessenger on first run.
+        # Edit freely — this file is left alone on subsequent launches.
+
+        [reticulum]
+        enable_transport = False
+        share_instance = Yes
+        instance_name = default
+
+        [logging]
+        loglevel = 4
+
+        [interfaces]
+
+          [[Default Interface]]
+            type = AutoInterface
+            enabled = Yes
+
+          [[Community Hub Testnet]]
+            type = TCPClientInterface
+            enabled = yes
+            target_host = rns.michmesh.net
+            target_port = 7822
+        """
+        try? body.write(to: url, atomically: true, encoding: .utf8)
+    }
 
     static func lastError() -> String? {
         guard let cStr = lxmf_last_error() else { return nil }
