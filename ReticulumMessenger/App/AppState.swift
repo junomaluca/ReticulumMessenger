@@ -1370,14 +1370,11 @@ final class AppState: ObservableObject {
             defaults.set(true, forKey: "meshDefaultsV2Applied")
         }
 
-        // One-time migration: turn the Rust engine on by default. The pure-
-        // Swift stack has no working Link/Resource layer and is shipped
-        // with zero default interfaces, so the app is non-functional out
-        // of the box unless the Rust engine drives the network.
-        if !defaults.bool(forKey: "rustDefaultEnabledV1Applied") {
-            defaults.set(true, forKey: "rustEngineEnabled")
-            defaults.set(true, forKey: "rustDefaultEnabledV1Applied")
-        }
+        // Rust engine is now mandatory — the pure-Swift LXMF stack can't
+        // deliver. Force the flag on every launch so toggling it off via
+        // older builds' UI doesn't strand the user without a working send
+        // path.
+        defaults.set(true, forKey: "rustEngineEnabled")
 
         // Register defaults for fresh installs
         defaults.register(defaults: [

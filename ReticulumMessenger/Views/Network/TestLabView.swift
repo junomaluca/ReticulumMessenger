@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // ReticulumMessenger — TestLabView.swift
-// Stress-test panel: sends a battery of LXMF messages of varying size and
-// payload type to a configured peer, records per-send outcome, and exposes
-// the results in-app + via the diagnostics stream.
+// Diagnostics + stress-test panel: send a battery of LXMF messages of
+// varying size and payload type to a configured peer, view packet
+// statistics, probe peer paths, and publish/stream diagnostic reports.
 
 import SwiftUI
 import ReticulumKit
@@ -11,10 +11,13 @@ import LXMFKit
 struct TestLabView: View {
     @EnvironmentObject var appState: AppState
     @AppStorage("testLab.peerHex") private var peerHex: String = ""
-    @AppStorage("testLab.useRustEngine") private var useRustEngine: Bool = true
     @State private var results: [TestResult] = []
     @State private var running = false
     @State private var currentLabel: String?
+    @State private var copiedToast = false
+    @State private var isPublishing = false
+    @State private var publishedURL: URL?
+    @State private var publishError: String?
 
     var body: some View {
         Form {
@@ -51,39 +54,6 @@ struct TestLabView: View {
                     .font(.caption2)
                     .monospaced()
             }
-
-            Section {
-                Toggle(isOn: Binding(
-                    get: { appState.rustEngineEnabled },
-                    set: { appState.setRustEngine($0) }
-                )) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Use Rust engine (experimental)")
-                        Text("Routes sends through Rusticulum + LXMF-rust FFI")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Toggle("Send via Rust engine", isOn: $useRustEngine)
-                    .disabled(!appState.rustEngineStarted)
-                if appState.rustEngineEnabled {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Rust LXMF: \(appState.rustLxmfAddress.isEmpty ? "(starting…)" : appState.rustLxmfAddress)")
-                            .font(.caption).monospaced().textSelection(.enabled)
-                        Text("Rust Identity: \(appState.rustIdentityHash.isEmpty ? "(starting…)" : appState.rustIdentityHash)")
-                            .font(.caption).monospaced().textSelection(.enabled)
-                        if let e = appState.rustEngineError {
-                            Text("Error: \(e)").font(.caption2).foregroundStyle(.red)
-                        }
-                        if !appState.rustRecentInbound.isEmpty {
-                            Text("Recent inbound (Rust):").font(.caption2).foregroundStyle(.secondary)
-                            ForEach(Array(appState.rustRecentInbound.enumerated()), id: \.offset) { _, line in
-                                Text("• \(line)").font(.caption2).lineLimit(2)
-                            }
-                        }
-                    }
-                }
-            } header: { Text("Rust engine") }
 
             Section("Individual tests") {
                 testButton("Send 1 tiny text (20 B)") {
@@ -152,8 +122,189 @@ struct TestLabView: View {
                     }
                 }
             }
+
+            // Network Probe — moved here from the main Network tab so all
+            // diagnostic tooling lives in one place.
+            Section("Network probe") {
+                Button {
+                    Task { await appState.probeFirstPeer() }
+                } label: {
+                    Label("Probe first peer", systemImage: "stethoscope")
+                }
+                .disabled(appState.knownPeers.isEmpty)
+
+                if !appState.probeResult.isEmpty {
+                    Text(appState.probeResult)
+                        .font(.caption)
+                        .monospaced()
+                }
+            }
+
+            // Packet Stats — moved here from the Network tab so the main
+            // status view stays focused on identity + interfaces.
+            if !appState.packetDiagnostics.isEmpty {
+                Section {
+                    Text(appState.packetDiagnostics)
+                        .font(.caption)
+                        .monospaced()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            UIPasteboard.general.string = appState.packetDiagnostics
+                            withAnimation { copiedToast = true }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                withAnimation { copiedToast = false }
+                            }
+                        }
+                    Button {
+                        publishDiagnostics()
+                    } label: {
+                        HStack {
+                            if isPublishing {
+                                ProgressView().controlSize(.small)
+                                Text("Publishing…")
+                            } else {
+                                Label("Publish Diagnostics", systemImage: "square.and.arrow.up")
+                            }
+                        }
+                    }
+                    .disabled(isPublishing)
+
+                    Toggle(isOn: Binding(
+                        get: { appState.autoPublishDiagnosticsEnabled },
+                        set: { appState.setAutoPublishDiagnostics($0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Auto-publish every 1 min")
+                            Text("Posts to paste.rs in the background")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Toggle(isOn: Binding(
+                        get: { appState.streamDiagnosticsEnabled },
+                        set: { appState.setStreamDiagnostics($0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Stream to ntfy.sh (every 10s)")
+                            Text("Pushes diagnostics for live remote monitoring")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if appState.streamDiagnosticsEnabled && !appState.ntfyTopic.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Stream topic")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            HStack {
+                                Text("ntfy.sh/" + appState.ntfyTopic)
+                                    .font(.caption)
+                                    .monospaced()
+                                    .textSelection(.enabled)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                Button {
+                                    UIPasteboard.general.string = "https://ntfy.sh/" + appState.ntfyTopic + "/raw"
+                                    withAnimation { copiedToast = true }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                        withAnimation { copiedToast = false }
+                                    }
+                                } label: {
+                                    Image(systemName: "doc.on.doc")
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                            if let ts = appState.lastStreamAt {
+                                Text("Last push \(ts, style: .relative) ago")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+
+                    if let urlString = appState.lastDiagnosticsURL,
+                       let url = URL(string: urlString) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Latest URL")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            HStack {
+                                Text(urlString)
+                                    .font(.caption)
+                                    .monospaced()
+                                    .textSelection(.enabled)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                Button {
+                                    UIPasteboard.general.string = urlString
+                                    withAnimation { copiedToast = true }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                        withAnimation { copiedToast = false }
+                                    }
+                                } label: {
+                                    Image(systemName: "doc.on.doc")
+                                }
+                                .buttonStyle(.borderless)
+                                Link(destination: url) {
+                                    Image(systemName: "arrow.up.right.square")
+                                }
+                            }
+                            if let ts = appState.lastDiagnosticsAt {
+                                Text("Published \(ts, style: .relative) ago")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Packet Stats")
+                        Spacer()
+                        if copiedToast {
+                            Text("Copied!")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                                .transition(.opacity)
+                        } else {
+                            Text("tap to copy")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+
+            // Rust engine recent activity, for debugging.
+            if !appState.rustRecentInbound.isEmpty {
+                Section("Recent inbound (Rust)") {
+                    ForEach(Array(appState.rustRecentInbound.enumerated()), id: \.offset) { _, line in
+                        Text("• \(line)").font(.caption2).lineLimit(2)
+                    }
+                }
+            }
         }
-        .navigationTitle("Test Lab")
+        .navigationTitle("Diagnostics")
+        .alert("Diagnostics Published", isPresented: .init(
+            get: { publishedURL != nil },
+            set: { if !$0 { publishedURL = nil } }
+        )) {
+            Button("OK", role: .cancel) { publishedURL = nil }
+        } message: {
+            Text("URL copied to clipboard:\n\(publishedURL?.absoluteString ?? "")")
+        }
+        .alert("Publish Failed", isPresented: .init(
+            get: { publishError != nil },
+            set: { if !$0 { publishError = nil } }
+        )) {
+            Button("OK", role: .cancel) { publishError = nil }
+        } message: {
+            Text(publishError ?? "")
+        }
     }
 
     // MARK: - Test runner
@@ -226,26 +377,18 @@ struct TestLabView: View {
     }
 
     private func sendText(content: String) async throws {
-        guard let hash = peerHash else { throw NSError(domain: "TestLab", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid peer address"]) }
-        if useRustEngine {
-            try await appState.rustSendText(to: peerHex, content: content)
-        } else {
-            try await appState.sendMessage(content: content, to: hash)
-        }
+        guard peerHash != nil else { throw NSError(domain: "Diagnostics", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid peer address"]) }
+        try await appState.rustSendText(to: peerHex, content: content)
     }
 
     private func sendAttachment(size: Int, mime: String, name: String) async throws {
-        guard let hash = peerHash else { throw NSError(domain: "TestLab", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid peer address"]) }
+        guard peerHash != nil else { throw NSError(domain: "Diagnostics", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid peer address"]) }
         var bytes = Data(count: size)
         bytes.withUnsafeMutableBytes { buf in
             _ = SecRandomCopyBytes(kSecRandomDefault, size, buf.baseAddress!)
         }
-        if useRustEngine {
-            try await appState.rustSendAttachment(to: peerHex, data: bytes,
-                                                  mime: mime, filename: name)
-        } else {
-            try await appState.sendAttachment(data: bytes, mimeType: mime, filename: name, to: hash)
-        }
+        try await appState.rustSendAttachment(to: peerHex, data: bytes,
+                                              mime: mime, filename: name)
     }
 
     private func pasteAddress() {
@@ -258,6 +401,26 @@ struct TestLabView: View {
         if let first = appState.announceStream.first(where: { $0.destinationHash != nil }),
            let dest = first.destinationHash {
             peerHex = dest.map { String(format: "%02x", $0) }.joined()
+        }
+    }
+
+    private func publishDiagnostics() {
+        guard !isPublishing else { return }
+        isPublishing = true
+        let report = DiagnosticsService.buildReport(appState: appState)
+        Task {
+            defer { Task { @MainActor in isPublishing = false } }
+            do {
+                let url = try await DiagnosticsService.publishToPasteRs(report)
+                await MainActor.run {
+                    UIPasteboard.general.string = url.absoluteString
+                    publishedURL = url
+                }
+            } catch {
+                await MainActor.run {
+                    publishError = error.localizedDescription
+                }
+            }
         }
     }
 }
