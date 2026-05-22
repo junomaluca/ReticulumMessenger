@@ -596,6 +596,8 @@ final class AppState: ObservableObject {
                     Task { @MainActor in
                         guard let self else { return }
                         let (parsedFields, parsedAttachments) = Self.parseRustFields(msg.fieldsRaw)
+                        let prefix = msg.fieldsRaw.prefix(64).map { String(format: "%02x", $0) }.joined()
+                        NSLog("[RustEngine] inbound fieldsRaw bytes=\(msg.fieldsRaw.count) head=\(prefix) parsedAttachments=\(parsedAttachments.count) parsedFields=\(parsedFields.keys.map { String(format: "0x%02x", $0) })")
                         var lxm = LXMessage(
                             id: msg.messageHash,
                             sourceHash: msg.sourceHash,
