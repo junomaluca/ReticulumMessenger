@@ -63,6 +63,8 @@ final class AppState: ObservableObject {
     @Published var rustIdentityHash: String = ""
     @Published var rustEngineError: String?
     @Published var rustRecentInbound: [String] = []   // newest last, max 20
+    @Published var rustHubOnline: Int32 = -1          // 1 online, 0 offline, -1 unknown
+    @Published var rustOutboundLog: [String] = []     // recent outbound LXMF sends (newest last)
 
     /// Lazily-created Rust engine. nil until the user enables it.
     private(set) var rustEngine: RustEngine?
@@ -246,6 +248,25 @@ final class AppState: ObservableObject {
     // MARK: - Messaging
 
     func sendMessage(content: String, to destinationHash: Data) async throws {
+        if rustEngineEnabled, rustEngineStarted, let engine = rustEngine, let src = engine.lxmfHash {
+            let message = LXMessage(
+                sourceHash: src,
+                destinationHash: destinationHash,
+                content: content
+            )
+            addMessageToConversation(message)
+            NotificationService.shared.playMessageSentHaptic()
+            let destHex = destinationHash.map { String(format: "%02x", $0) }.joined()
+            do {
+                _ = try engine.sendText(to: destinationHash, content: content)
+                appendRustOutbound("text \(content.count)B → \(String(destHex.prefix(16)))")
+            } catch {
+                appendRustOutbound("text → \(String(destHex.prefix(16))) FAIL: \(error.localizedDescription)")
+                throw error
+            }
+            return
+        }
+
         guard let router = lxmRouter, let rns = reticulum else { return }
 
         let identity = try await rns.getLocalIdentity()
@@ -266,6 +287,30 @@ final class AppState: ObservableObject {
     }
 
     func sendAttachment(data: Data, mimeType: String, filename: String?, to destinationHash: Data) async throws {
+        if rustEngineEnabled, rustEngineStarted, let engine = rustEngine, let src = engine.lxmfHash {
+            var message = LXMessage(
+                sourceHash: src,
+                destinationHash: destinationHash,
+                content: filename ?? "Attachment"
+            )
+            message.addAttachment(LXMFAttachment(data: data, mimeType: mimeType, filename: filename))
+            addMessageToConversation(message)
+            NotificationService.shared.playMessageSentHaptic()
+            let destHex = destinationHash.map { String(format: "%02x", $0) }.joined()
+            do {
+                _ = try engine.sendAttachment(
+                    to: destinationHash, data: data, mimeType: mimeType,
+                    filename: filename ?? "attachment.bin",
+                    body: filename ?? "Attachment"
+                )
+                appendRustOutbound("attach \(filename ?? "?") \(data.count)B → \(String(destHex.prefix(16)))")
+            } catch {
+                appendRustOutbound("attach → \(String(destHex.prefix(16))) FAIL: \(error.localizedDescription)")
+                throw error
+            }
+            return
+        }
+
         guard let router = lxmRouter, let rns = reticulum else { return }
 
         let identity = try await rns.getLocalIdentity()
@@ -538,22 +583,55 @@ final class AppState: ObservableObject {
                     self?.rustEngineError = nil
                 }
                 engine.setDeliveryHandler { [weak self] msg in
-                    let line = "\(msg.title.isEmpty ? "(no title)" : msg.title): \(msg.content.prefix(80))"
                     Task { @MainActor in
-                        self?.rustRecentInbound.append(line)
-                        if (self?.rustRecentInbound.count ?? 0) > 20 {
-                            self?.rustRecentInbound.removeFirst()
-                        }
-                        NotificationService.shared.showMessageNotification(
-                            from: "rust",
+                        guard let self else { return }
+                        let lxm = LXMessage(
+                            id: msg.messageHash,
+                            sourceHash: msg.sourceHash,
+                            destinationHash: msg.destinationHash,
                             content: msg.content,
-                            conversationHash: msg.sourceHash
-                                .map { String(format: "%02x", $0) }.joined()
+                            title: msg.title.isEmpty ? nil : msg.title,
+                            timestamp: msg.timestamp,
+                            method: .direct,
+                            fields: [:]
                         )
+                        self.handleReceivedMessage(lxm)
+
+                        let line = "\(msg.title.isEmpty ? "(no title)" : msg.title): \(msg.content.prefix(80))"
+                        self.rustRecentInbound.append(line)
+                        if self.rustRecentInbound.count > 20 {
+                            self.rustRecentInbound.removeFirst()
+                        }
                     }
                 }
-                engine.setAnnounceHandler { _, _ in /* logged at FFI layer */ }
+                engine.setAnnounceHandler { [weak self] destHash, name in
+                    Task { @MainActor in
+                        self?.handleAnnounce(hash: destHash, name: name, appData: name)
+                    }
+                }
+                // Re-announce on every interface up-edge + every 10 min,
+                // so the hub TCP socket finishing its handshake after our
+                // initial one-shot announce still gets us on the network.
+                engine.publish(refreshSeconds: 600)
                 engine.announce()
+
+                // Probe the testnet hub interface state on a slow timer so
+                // we can confirm WAN connectivity in the diagnostics stream.
+                // 5s startup grace + repeat every 15s.
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    while let self, self.rustEngineEnabled, self.rustEngineStarted {
+                        let s = engine.interfaceOnline("Community Hub Testnet")
+                        self.rustHubOnline = s
+                        if s == 1 {
+                            self.rustEngineError = nil
+                        } else if s == 0 {
+                            self.rustEngineError = "hub offline"
+                        }
+                        try? await Task.sleep(nanoseconds: 15_000_000_000)
+                    }
+                }
+
             } catch {
                 await MainActor.run {
                     self?.rustEngineStarted = false
@@ -585,6 +663,14 @@ final class AppState: ObservableObject {
         }
         _ = try engine.sendAttachment(to: dest, data: data, mimeType: mime,
                                       filename: filename, title: title, body: body)
+    }
+
+    private func appendRustOutbound(_ line: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        rustOutboundLog.append("\(timestamp) \(line)")
+        if rustOutboundLog.count > 20 {
+            rustOutboundLog.removeFirst()
+        }
     }
 
     private static func hexToData(_ hex: String) -> Data? {
@@ -1260,6 +1346,15 @@ final class AppState: ObservableObject {
             defaults.set(true, forKey: "meshDefaultsV2Applied")
         }
 
+        // One-time migration: turn the Rust engine on by default. The pure-
+        // Swift stack has no working Link/Resource layer and is shipped
+        // with zero default interfaces, so the app is non-functional out
+        // of the box unless the Rust engine drives the network.
+        if !defaults.bool(forKey: "rustDefaultEnabledV1Applied") {
+            defaults.set(true, forKey: "rustEngineEnabled")
+            defaults.set(true, forKey: "rustDefaultEnabledV1Applied")
+        }
+
         // Register defaults for fresh installs
         defaults.register(defaults: [
             "autoAnnounce": true,
@@ -1267,7 +1362,8 @@ final class AppState: ObservableObject {
             "transportMode": false,
             "propagationNode": false,
             "autoPublishDiagnostics": false,
-            "streamDiagnostics": false
+            "streamDiagnostics": false,
+            "rustEngineEnabled": true
         ])
 
         autoAnnounceEnabled = defaults.bool(forKey: "autoAnnounce")

@@ -121,6 +121,37 @@ struct SettingsView: View {
                     Text("Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers.")
                 }
 
+                // Engine selection — Rust engine drives sends/receives when
+                // ON; off-mode falls back to the pure-Swift LXMF stack, which
+                // is currently incomplete and not recommended.
+                Section {
+                    Toggle("Use Rust engine (recommended)", isOn: Binding(
+                        get: { appState.rustEngineEnabled },
+                        set: { appState.setRustEngine($0) }
+                    ))
+                    if appState.rustEngineEnabled {
+                        LabeledContent("Status") {
+                            Text(appState.rustEngineStarted ? "Started" : "Starting…")
+                                .foregroundStyle(appState.rustEngineStarted ? .green : .orange)
+                        }
+                        if !appState.rustLxmfAddress.isEmpty {
+                            LabeledContent("LXMF Address") {
+                                Text(appState.rustLxmfAddress)
+                                    .font(.caption2)
+                                    .monospaced()
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        if let err = appState.rustEngineError {
+                            Text(err).font(.caption2).foregroundStyle(.red)
+                        }
+                    }
+                } header: {
+                    Text("Engine")
+                } footer: {
+                    Text("The Rust engine (Rusticulum + LXMF-rust) is the proven send/receive path. The pure-Swift fallback cannot deliver LXMF reliably yet — leave this ON.")
+                }
+
                 // About
                 Section("About") {
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–")

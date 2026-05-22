@@ -46,6 +46,35 @@ enum DiagnosticsService {
         out += "LXMF Address:  \(appState.deliveryHash.isEmpty ? "(none)" : appState.deliveryHash)\n"
         out += "\n"
 
+        out += "=== Rust Engine ===\n"
+        out += "Enabled: \(appState.rustEngineEnabled)\n"
+        out += "Started: \(appState.rustEngineStarted)\n"
+        out += "Rust Identity: \(appState.rustIdentityHash.isEmpty ? "(none)" : appState.rustIdentityHash)\n"
+        out += "Rust LXMF:     \(appState.rustLxmfAddress.isEmpty ? "(none)" : appState.rustLxmfAddress)\n"
+        let hubLbl: String
+        switch appState.rustHubOnline {
+        case 1: hubLbl = "online"
+        case 0: hubLbl = "offline"
+        default: hubLbl = "unknown"
+        }
+        out += "Rust MichMesh Hub: \(hubLbl)\n"
+        if let err = appState.rustEngineError {
+            out += "Rust Error: \(err)\n"
+        }
+        if !appState.rustOutboundLog.isEmpty {
+            out += "Rust Recent Outbound (newest last):\n"
+            for line in appState.rustOutboundLog.suffix(10) {
+                out += "  → \(line)\n"
+            }
+        }
+        if !appState.rustRecentInbound.isEmpty {
+            out += "Rust Recent Inbound (newest last):\n"
+            for line in appState.rustRecentInbound.suffix(10) {
+                out += "  • \(line)\n"
+            }
+        }
+        out += "\n"
+
         out += "=== Network ===\n"
         out += "Status: \(appState.networkStatus.label)\n"
         let online = appState.interfaces.filter(\.isOnline).count

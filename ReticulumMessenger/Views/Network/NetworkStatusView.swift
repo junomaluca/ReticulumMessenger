@@ -33,8 +33,45 @@ struct NetworkStatusView: View {
                     .padding(.vertical, 4)
                 }
 
-                // Identity
-                Section("Local Identity") {
+                // Identity — Rust engine is the active send/receive path, so
+                // show its address as primary when it's started.
+                Section("Local Identity (Rust engine)") {
+                    if !appState.rustLxmfAddress.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            LabeledContent("Identity Hash") {
+                                Text(formatHash(appState.rustIdentityHash))
+                                    .monospaced()
+                                    .font(.caption)
+                                    .textSelection(.enabled)
+                            }
+                            LabeledContent("LXMF Address") {
+                                Text(appState.rustLxmfAddress)
+                                    .monospaced()
+                                    .font(.caption)
+                                    .textSelection(.enabled)
+                            }
+                            Button {
+                                UIPasteboard.general.string = appState.rustLxmfAddress
+                                withAnimation { copiedToast = true }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                    withAnimation { copiedToast = false }
+                                }
+                            } label: {
+                                Label("Copy LXMF address", systemImage: "doc.on.doc")
+                                    .font(.caption)
+                            }
+                        }
+                    } else if appState.rustEngineEnabled {
+                        Text("Starting Rust engine…")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Rust engine disabled")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                // Pure-Swift identity stays visible for diagnostics.
+                Section("Pure-Swift Identity (legacy)") {
                     if !appState.localIdentityHash.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             LabeledContent("Identity Hash") {

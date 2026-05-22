@@ -82,12 +82,20 @@ final class RustEngine: @unchecked Sendable {
         let storage   = baseDir.appendingPathComponent("storage",   isDirectory: true)
         let identity  = baseDir.appendingPathComponent("identity")
 
+        NSLog("[RustEngine] start: configDir=\(configDir.path)")
         try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: storage,   withIntermediateDirectories: true)
 
-        // Without this, RNS would seed the config with only an AutoInterface
-        // (link-local IPv6 multicast) — no way to reach the wider testnet.
-        Self.seedDefaultConfigIfMissing(at: configDir.appendingPathComponent("config"))
+        // Make sure the config has the testnet TCP hub — write a fresh one
+        // if missing, otherwise heal an existing config that doesn't have it
+        // (e.g. older installs that ran before this seed code was added).
+        let configURL = configDir.appendingPathComponent("config")
+        Self.ensureTestnetHubInConfig(at: configURL)
+        if let body = try? String(contentsOf: configURL, encoding: .utf8) {
+            NSLog("[RustEngine] config body bytes=\(body.count), has-michmesh=\(body.contains("rns.michmesh.net"))")
+        } else {
+            NSLog("[RustEngine] config NOT readable after seed at \(configURL.path)")
+        }
 
         let createIdentity: Int32 = FileManager.default.fileExists(atPath: identity.path) ? 0 : 1
 
@@ -106,9 +114,12 @@ final class RustEngine: @unchecked Sendable {
             }
         }
         guard h != 0 else {
-            throw RustEngineError.startFailed(Self.lastError() ?? "unknown")
+            let err = Self.lastError() ?? "unknown"
+            NSLog("[RustEngine] lxmf_client_start FAILED: \(err)")
+            throw RustEngineError.startFailed(err)
         }
         handle = h
+        NSLog("[RustEngine] lxmf_client_start succeeded, handle=\(h)")
 
         // Cache our addresses.
         var idBuf = [UInt8](repeating: 0, count: 16)
@@ -119,6 +130,9 @@ final class RustEngine: @unchecked Sendable {
         if lxmf_client_dest_hash(handle, &destBuf, 16) > 0 {
             lxmfHash = Data(destBuf)
         }
+        let idHex = identityHash?.map { String(format: "%02x", $0) }.joined() ?? "?"
+        let lxHex = lxmfHash?.map { String(format: "%02x", $0) }.joined() ?? "?"
+        NSLog("[RustEngine] identity=\(idHex) lxmf=\(lxHex)")
 
         // Wire the delivery callback.
         // The C callback's `context` pointer is an Unmanaged ref to `self`
@@ -148,6 +162,8 @@ final class RustEngine: @unchecked Sendable {
                 signatureValid: sigValid != 0,
                 fieldsRaw: fields
             )
+            let fromHex = src.map { String(format: "%02x", $0) }.joined()
+            NSLog("[RustEngine] DELIVERED from=\(fromHex) sig=\(sigValid != 0) bytes=\(content.utf8.count) title='\(title)'")
             me.onDelivery?(inbound)
         }, ctx)
 
@@ -175,7 +191,28 @@ final class RustEngine: @unchecked Sendable {
     @discardableResult
     func announce() -> Bool {
         guard handle != 0 else { return false }
-        return lxmf_client_announce(handle) == 0
+        let rc = lxmf_client_announce(handle)
+        NSLog("[RustEngine] announce rc=\(rc)")
+        return rc == 0
+    }
+
+    /// Register the delivery destination for automatic re-announce.
+    /// The Rust transport will then re-announce on every interface
+    /// false→true transition (so newly-connected TCP hubs see us) and
+    /// every `refreshSeconds` thereafter (0 to disable periodic refresh).
+    /// Idempotent: a second call updates the entry.
+    @discardableResult
+    func publish(refreshSeconds: Double = 600) -> Bool {
+        guard handle != 0 else { return false }
+        let rc = lxmf_client_publish(handle, refreshSeconds)
+        NSLog("[RustEngine] publish refresh=\(refreshSeconds) rc=\(rc)")
+        return rc == 0
+    }
+
+    /// Query whether the named interface is currently online (1) / offline (0)
+    /// / unknown (-1). Useful for confirming the TCP hub actually connected.
+    func interfaceOnline(_ name: String) -> Int32 {
+        return name.withCString { rns_interface_online($0) }
     }
 
     /// Send a small text message via the Rust LXMF stack. Returns the message hash on success.
@@ -253,30 +290,15 @@ final class RustEngine: @unchecked Sendable {
 
     // MARK: - Helpers
 
-    /// Write a default Reticulum config to `url` if no config exists there yet.
-    /// Includes the MichMesh testnet TCP hub so a fresh install can actually
-    /// reach the wider network on first launch. If the file already exists
-    /// (because the user edited it or the FFI already seeded one) we leave
-    /// it alone.
-    private static func seedDefaultConfigIfMissing(at url: URL) {
-        guard !FileManager.default.fileExists(atPath: url.path) else { return }
-        let body = """
-        # Seeded by ReticulumMessenger on first run.
-        # Edit freely — this file is left alone on subsequent launches.
-
-        [reticulum]
-        enable_transport = False
-        share_instance = Yes
-        instance_name = default
-
-        [logging]
-        loglevel = 4
-
-        [interfaces]
-
-          [[Default Interface]]
-            type = AutoInterface
-            enabled = Yes
+    /// Ensure the Reticulum config at `url` has the MichMesh testnet TCP hub
+    /// interface defined. Three cases:
+    ///   1. File doesn't exist → write a minimal config including the hub.
+    ///   2. File exists but doesn't reference rns.michmesh.net → append the
+    ///      hub stanza so the engine has a working WAN path.
+    ///   3. File exists and already has the hub → no-op.
+    /// Heals installs that ran before the original seed code shipped.
+    private static func ensureTestnetHubInConfig(at url: URL) {
+        let hubStanza = """
 
           [[Community Hub Testnet]]
             type = TCPClientInterface
@@ -284,7 +306,38 @@ final class RustEngine: @unchecked Sendable {
             target_host = rns.michmesh.net
             target_port = 7822
         """
-        try? body.write(to: url, atomically: true, encoding: .utf8)
+
+        if !FileManager.default.fileExists(atPath: url.path) {
+            let body = """
+            # Seeded by ReticulumMessenger on first run.
+            # Edit freely — this file is left alone on subsequent launches,
+            # except that the MichMesh testnet hub stanza is auto-appended
+            # if it ever goes missing.
+
+            [reticulum]
+            enable_transport = False
+            share_instance = Yes
+            instance_name = default
+
+            [logging]
+            loglevel = 4
+
+            [interfaces]
+
+              [[Default Interface]]
+                type = AutoInterface
+                enabled = Yes
+            \(hubStanza)
+            """
+            try? body.write(to: url, atomically: true, encoding: .utf8)
+            return
+        }
+
+        if let body = try? String(contentsOf: url, encoding: .utf8),
+           !body.contains("rns.michmesh.net") {
+            let appended = body + "\n" + hubStanza + "\n"
+            try? appended.write(to: url, atomically: true, encoding: .utf8)
+        }
     }
 
     static func lastError() -> String? {
