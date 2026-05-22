@@ -15,7 +15,7 @@ struct IdentityView: View {
                     Spacer()
                     VStack(spacing: 16) {
                         AvatarView(
-                            hash: Data(hexString: appState.localIdentityHash) ?? Data(),
+                            hash: Data(hexString: appState.rustIdentityHash) ?? Data(),
                             size: 96
                         )
                         Text("Your Identity")
@@ -28,12 +28,12 @@ struct IdentityView: View {
 
             Section("Identity Hash") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(appState.localIdentityHash)
+                    Text(appState.rustIdentityHash)
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
 
                     Button {
-                        UIPasteboard.general.string = appState.localIdentityHash
+                        UIPasteboard.general.string = appState.rustIdentityHash
                         identityCopied = true
                         Task {
                             try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -50,12 +50,12 @@ struct IdentityView: View {
 
             Section("LXMF Delivery Address") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(appState.deliveryHash)
+                    Text(appState.rustLxmfAddress)
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
 
                     Button {
-                        UIPasteboard.general.string = appState.deliveryHash
+                        UIPasteboard.general.string = appState.rustLxmfAddress
                         deliveryCopied = true
                         Task {
                             try? await Task.sleep(nanoseconds: 2_000_000_000)

@@ -15,9 +15,9 @@ struct SettingsView: View {
                 // Profile
                 Section("Profile") {
                     HStack {
-                        if !appState.localIdentityHash.isEmpty {
+                        if !appState.rustIdentityHash.isEmpty {
                             AvatarView(
-                                hash: Data(hexString: appState.localIdentityHash) ?? Data(),
+                                hash: Data(hexString: appState.rustIdentityHash) ?? Data(),
                                 size: 56
                             )
                         }
@@ -25,7 +25,7 @@ struct SettingsView: View {
                             TextField("Display Name", text: $displayName)
                                 .font(.headline)
                                 .onSubmit { saveDisplayName() }
-                            Text(appState.localIdentityHash.isEmpty ? "..." : String(appState.localIdentityHash.prefix(16)))
+                            Text(appState.rustIdentityHash.isEmpty ? "..." : String(appState.rustIdentityHash.prefix(16)))
                                 .font(.caption)
                                 .monospaced()
                                 .foregroundStyle(.secondary)
@@ -35,8 +35,10 @@ struct SettingsView: View {
 
                 // Identity
                 Section("Identity") {
-                    NavigationLink("Identity Details") {
+                    NavigationLink {
                         IdentityView()
+                    } label: {
+                        Label("Identity Details", systemImage: "person.text.rectangle")
                     }
 
                     NavigationLink {

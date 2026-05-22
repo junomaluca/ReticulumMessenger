@@ -36,7 +36,7 @@ struct QRCodeView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            if let image = generateQRCode(from: appState.deliveryHash) {
+            if let image = generateQRCode(from: appState.rustLxmfAddress) {
                 Image(uiImage: image)
                     .interpolation(.none)
                     .resizable()
@@ -50,7 +50,7 @@ struct QRCodeView: View {
             Text("LXMF Address")
                 .font(.headline)
 
-            Text(appState.deliveryHash)
+            Text(appState.rustLxmfAddress)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
@@ -62,7 +62,7 @@ struct QRCodeView: View {
                 .foregroundStyle(.tertiary)
 
             Button {
-                UIPasteboard.general.string = appState.deliveryHash
+                UIPasteboard.general.string = appState.rustLxmfAddress
             } label: {
                 Label("Copy Address", systemImage: "doc.on.doc")
             }
