@@ -422,7 +422,7 @@ public struct LXMFAttachment: Sendable, Identifiable {
         self.mimeType = mimeType
     }
 
-    static func fromMessagePack(_ value: MessagePackValue) -> LXMFAttachment? {
+    public static func fromMessagePack(_ value: MessagePackValue) -> LXMFAttachment? {
         guard case .array(let arr) = value, arr.count >= 3,
               let name = arr[0].stringValue,
               let data = arr[1].dataValue,

@@ -14,6 +14,7 @@ struct MessageBubble: View {
     @State private var showReactionPicker = false
     @State private var isPlayingAudio = false
     @State private var audioPlayer: AVAudioPlayer?
+    @State private var audioDelegate: AudioPlaybackDelegate?
 
     private let reactionEmojis = ["👍", "❤️", "😂", "😮", "🔥", "🙏"]
 
@@ -37,6 +38,16 @@ struct MessageBubble: View {
 
                     if let attachment = message.attachment {
                         attachmentView(attachment)
+                        // Also show body text if it carries something extra
+                        // beyond the attachment's own filename (e.g. captions
+                        // from peers that send image + caption together).
+                        if !message.content.isEmpty,
+                           message.content != attachment.filename,
+                           message.content != "Attachment" {
+                            Text(message.content)
+                                .font(.body)
+                                .foregroundColor(message.isIncoming ? .primary : .white)
+                        }
                     } else {
                         Text(message.content)
                             .font(.body)
@@ -154,11 +165,25 @@ struct MessageBubble: View {
         if isPlayingAudio {
             audioPlayer?.stop()
             audioPlayer = nil
+            audioDelegate = nil
             isPlayingAudio = false
         } else {
             do {
-                audioPlayer = try AVAudioPlayer(data: data)
-                audioPlayer?.play()
+                let player = try AVAudioPlayer(data: data)
+                // Hold a strong ref to the delegate; AVAudioPlayer keeps a
+                // weak one and would never call audioPlayerDidFinishPlaying
+                // otherwise, leaving the icon stuck on "stop".
+                let delegate = AudioPlaybackDelegate {
+                    Task { @MainActor in
+                        isPlayingAudio = false
+                        audioPlayer = nil
+                        audioDelegate = nil
+                    }
+                }
+                player.delegate = delegate
+                player.play()
+                audioPlayer = player
+                audioDelegate = delegate
                 isPlayingAudio = true
             } catch {
                 isPlayingAudio = false
@@ -236,6 +261,26 @@ private struct ReactionGroup {
     let emoji: String
     var count: Int
     var hasLocal: Bool
+}
+
+/// Bridges AVAudioPlayer's Obj-C-style delegate callbacks back into the
+/// SwiftUI bubble so we can flip the icon from stop back to play when
+/// playback finishes naturally (vs. the user tapping stop). Lives outside
+/// the View so its lifetime isn't tied to a body re-render.
+final class AudioPlaybackDelegate: NSObject, AVAudioPlayerDelegate {
+    private let onFinish: () -> Void
+
+    init(onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        onFinish()
+    }
+
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        onFinish()
+    }
 }
 
 // MARK: - Bubble Shape

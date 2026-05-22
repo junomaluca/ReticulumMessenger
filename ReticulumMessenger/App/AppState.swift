@@ -595,7 +595,8 @@ final class AppState: ObservableObject {
                 engine.setDeliveryHandler { [weak self] msg in
                     Task { @MainActor in
                         guard let self else { return }
-                        let lxm = LXMessage(
+                        let (parsedFields, parsedAttachments) = Self.parseRustFields(msg.fieldsRaw)
+                        var lxm = LXMessage(
                             id: msg.messageHash,
                             sourceHash: msg.sourceHash,
                             destinationHash: msg.destinationHash,
@@ -603,11 +604,15 @@ final class AppState: ObservableObject {
                             title: msg.title.isEmpty ? nil : msg.title,
                             timestamp: msg.timestamp,
                             method: .direct,
-                            fields: [:]
+                            fields: parsedFields
                         )
+                        lxm.attachments = parsedAttachments
                         self.handleReceivedMessage(lxm)
 
-                        let line = "\(msg.title.isEmpty ? "(no title)" : msg.title): \(msg.content.prefix(80))"
+                        let attLabel = parsedAttachments.isEmpty
+                            ? ""
+                            : " [+\(parsedAttachments.count) attachment\(parsedAttachments.count == 1 ? "" : "s")]"
+                        let line = "\(msg.title.isEmpty ? "(no title)" : msg.title): \(msg.content.prefix(80))\(attLabel)"
                         self.rustRecentInbound.append(line)
                         if self.rustRecentInbound.count > 20 {
                             self.rustRecentInbound.removeFirst()
@@ -681,6 +686,37 @@ final class AppState: ObservableObject {
         if rustOutboundLog.count > 20 {
             rustOutboundLog.removeFirst()
         }
+    }
+
+    /// Decode the raw LXMF fields blob handed to us by the Rust engine.
+    /// The blob is the msgpack-encoded fields map: `{ field_id: value, ... }`.
+    /// Returns the non-attachment fields (so existing code paths keep
+    /// working) and any binary attachments separately, since the
+    /// ChatMessage / MessageBubble surfaces attachments via a dedicated
+    /// property — packing them back into `fields` would hide them.
+    private static func parseRustFields(_ raw: Data) -> ([UInt8: MessagePackValue], [LXMFAttachment]) {
+        guard !raw.isEmpty else { return ([:], []) }
+        guard let value = try? MessagePackDecoder.decode(raw),
+              case .map(let pairs) = value else {
+            return ([:], [])
+        }
+        var fields: [UInt8: MessagePackValue] = [:]
+        var attachments: [LXMFAttachment] = []
+        for (key, val) in pairs {
+            guard let keyNum = key.intValue else { continue }
+            let fieldType = UInt8(truncatingIfNeeded: keyNum)
+            switch fieldType {
+            case LXMessage.FieldType.fileAttachments.rawValue,
+                 LXMessage.FieldType.image.rawValue,
+                 LXMessage.FieldType.audio.rawValue:
+                if let att = LXMFAttachment.fromMessagePack(val) {
+                    attachments.append(att)
+                }
+            default:
+                fields[fieldType] = val
+            }
+        }
+        return (fields, attachments)
     }
 
     private static func hexToData(_ hex: String) -> Data? {
