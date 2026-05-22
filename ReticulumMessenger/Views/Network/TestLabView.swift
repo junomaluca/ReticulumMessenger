@@ -37,22 +37,8 @@ struct TestLabView: View {
                 } label: {
                     Label("Pick from recent announces", systemImage: "megaphone")
                 }
-                Button {
-                    peerHex = "07e15fb1284a4aa9419149bf891bfec3"
-                } label: {
-                    Label("Use Sideband (this Mac)", systemImage: "desktopcomputer")
-                }
-                Button {
-                    peerHex = "2db1b80d36dba6ae44e221696261cb38"
-                } label: {
-                    Label("Use Claude-Echo bot", systemImage: "bubble.left.and.bubble.right")
-                }
             } header: {
                 Text("Test peer")
-            } footer: {
-                Text("Sideband (this Mac): 07e15fb1284a4aa9419149bf891bfec3\nClaude-Echo bot: 2db1b80d36dba6ae44e221696261cb38")
-                    .font(.caption2)
-                    .monospaced()
             }
 
             Section("Individual tests") {
