@@ -254,14 +254,21 @@ final class AppState: ObservableObject {
                 destinationHash: destinationHash,
                 content: content
             )
+            let localId = message.id
             addMessageToConversation(message)
             NotificationService.shared.playMessageSentHaptic()
             let destHex = destinationHash.map { String(format: "%02x", $0) }.joined()
             do {
                 _ = try engine.sendText(to: destinationHash, content: content)
                 appendRustOutbound("text \(content.count)B → \(String(destHex.prefix(16)))")
+                // Rust engine queued + transmitted successfully — flip the
+                // local ChatMessage from .pending (clock) to .sent (check).
+                // The Rust engine doesn't yet surface per-message LRPROOF
+                // callbacks to us; "delivered" requires that hook.
+                updateMessageState(lxmfId: localId, to: .sent)
             } catch {
                 appendRustOutbound("text → \(String(destHex.prefix(16))) FAIL: \(error.localizedDescription)")
+                updateMessageState(lxmfId: localId, to: .failed)
                 throw error
             }
             return
@@ -294,6 +301,7 @@ final class AppState: ObservableObject {
                 content: filename ?? "Attachment"
             )
             message.addAttachment(LXMFAttachment(data: data, mimeType: mimeType, filename: filename))
+            let localId = message.id
             addMessageToConversation(message)
             NotificationService.shared.playMessageSentHaptic()
             let destHex = destinationHash.map { String(format: "%02x", $0) }.joined()
@@ -304,8 +312,10 @@ final class AppState: ObservableObject {
                     body: filename ?? "Attachment"
                 )
                 appendRustOutbound("attach \(filename ?? "?") \(data.count)B → \(String(destHex.prefix(16)))")
+                updateMessageState(lxmfId: localId, to: .sent)
             } catch {
                 appendRustOutbound("attach → \(String(destHex.prefix(16))) FAIL: \(error.localizedDescription)")
+                updateMessageState(lxmfId: localId, to: .failed)
                 throw error
             }
             return
@@ -1030,6 +1040,20 @@ final class AppState: ObservableObject {
         // Keep only last 200 announces
         if announceStream.count > 200 {
             announceStream = Array(announceStream.prefix(200))
+        }
+    }
+
+    /// Update an outgoing ChatMessage's state by its `lxmfId`. Used by the
+    /// Rust engine send path which doesn't go through LXMRouter's
+    /// DeliveryUpdate pipeline. Walks every conversation since we don't
+    /// know which one the message landed in.
+    private func updateMessageState(lxmfId: Data, to newState: ChatMessage.MessageState) {
+        for i in conversations.indices {
+            if let j = conversations[i].messages.firstIndex(where: { $0.lxmfId == lxmfId }) {
+                conversations[i].messages[j].state = newState
+                storageService?.saveConversations(conversations)
+                return
+            }
         }
     }
 
