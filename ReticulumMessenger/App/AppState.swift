@@ -65,6 +65,8 @@ final class AppState: ObservableObject {
     @Published var rustRecentInbound: [String] = []   // newest last, max 20
     @Published var rustHubOnline: Int32 = -1          // 1 online, 0 offline, -1 unknown
     @Published var rustOutboundLog: [String] = []     // recent outbound LXMF sends (newest last)
+    @Published var rustRecentFieldHex: [String] = []   // raw hex of fieldsRaw blobs from last 10 inbound deliveries (newest last) — surfaces in diagnostics dump
+    @Published var attachmentStats: AttachmentStats = AttachmentStats()
 
     /// Lazily-created Rust engine. nil until the user enables it.
     private(set) var rustEngine: RustEngine?
@@ -293,12 +295,13 @@ final class AppState: ObservableObject {
         _ = try await router.send(message)
     }
 
-    func sendAttachment(data: Data, mimeType: String, filename: String?, to destinationHash: Data) async throws {
+    func sendAttachment(data: Data, mimeType: String, filename: String?, to destinationHash: Data, body: String = "") async throws {
         if rustEngineEnabled, rustEngineStarted, let engine = rustEngine, let src = engine.lxmfHash {
+            let displayContent = body.isEmpty ? (filename ?? "Attachment") : body
             var message = LXMessage(
                 sourceHash: src,
                 destinationHash: destinationHash,
-                content: filename ?? "Attachment"
+                content: displayContent
             )
             message.addAttachment(LXMFAttachment(data: data, mimeType: mimeType, filename: filename))
             let localId = message.id
@@ -309,12 +312,23 @@ final class AppState: ObservableObject {
                 _ = try engine.sendAttachment(
                     to: destinationHash, data: data, mimeType: mimeType,
                     filename: filename ?? "attachment.bin",
-                    body: filename ?? "Attachment"
+                    body: displayContent
                 )
                 appendRustOutbound("attach \(filename ?? "?") \(data.count)B → \(String(destHex.prefix(16)))")
+                attachmentStats.record(AttachmentEvent(
+                    timestamp: Date(), direction: "out",
+                    mimeType: mimeType, size: data.count,
+                    filename: filename ?? "attachment.bin", success: true, note: nil
+                ))
                 updateMessageState(lxmfId: localId, to: .sent)
             } catch {
                 appendRustOutbound("attach → \(String(destHex.prefix(16))) FAIL: \(error.localizedDescription)")
+                attachmentStats.record(AttachmentEvent(
+                    timestamp: Date(), direction: "out",
+                    mimeType: mimeType, size: data.count,
+                    filename: filename ?? "attachment.bin", success: false,
+                    note: error.localizedDescription
+                ))
                 updateMessageState(lxmfId: localId, to: .failed)
                 throw error
             }
@@ -324,10 +338,11 @@ final class AppState: ObservableObject {
         guard let router = lxmRouter, let rns = reticulum else { return }
 
         let identity = try await rns.getLocalIdentity()
+        let displayContent = body.isEmpty ? (filename ?? "Attachment") : body
         var message = LXMessage(
             sourceHash: identity.hash,
             destinationHash: destinationHash,
-            content: filename ?? "Attachment"
+            content: displayContent
         )
         message.addAttachment(LXMFAttachment(data: data, mimeType: mimeType, filename: filename))
 
@@ -596,8 +611,36 @@ final class AppState: ObservableObject {
                     Task { @MainActor in
                         guard let self else { return }
                         let (parsedFields, parsedAttachments) = Self.parseRustFields(msg.fieldsRaw)
-                        let prefix = msg.fieldsRaw.prefix(64).map { String(format: "%02x", $0) }.joined()
-                        NSLog("[RustEngine] inbound fieldsRaw bytes=\(msg.fieldsRaw.count) head=\(prefix) parsedAttachments=\(parsedAttachments.count) parsedFields=\(parsedFields.keys.map { String(format: "0x%02x", $0) })")
+                        let fullHex = msg.fieldsRaw.map { String(format: "%02x", $0) }.joined()
+                        let attTypes = parsedAttachments.map { $0.mimeType }.joined(separator: ",")
+                        NSLog("[RustEngine] inbound fieldsRaw bytes=\(msg.fieldsRaw.count) parsedAttachments=\(parsedAttachments.count) types=[\(attTypes)] parsedFields=\(parsedFields.keys.map { String(format: "0x%02x", $0) }) hex=\(fullHex)")
+                        if msg.fieldsRaw.count > 0 {
+                            let line = "atts=\(parsedAttachments.count) types=[\(attTypes)] fields=\(parsedFields.keys.map { String(format: "0x%02x", $0) }) bytes=\(msg.fieldsRaw.count) hex=\(fullHex.prefix(512))"
+                            self.rustRecentFieldHex.append(line)
+                            if self.rustRecentFieldHex.count > 10 {
+                                self.rustRecentFieldHex.removeFirst()
+                            }
+                            // Also append to a file in Documents for off-device
+                            // diagnostics via devicectl. iOS log privacy strips
+                            // our NSLog as <private> on real devices, so write
+                            // to a file we can pull.
+                            if let docs = try? FileManager.default.url(
+                                for: .documentDirectory, in: .userDomainMask,
+                                appropriateFor: nil, create: true) {
+                                let logURL = docs.appendingPathComponent("inbound-fields.log")
+                                let ts = ISO8601DateFormatter().string(from: Date())
+                                let entry = "\(ts) \(line)\n"
+                                if let data = entry.data(using: .utf8) {
+                                    if let h = try? FileHandle(forWritingTo: logURL) {
+                                        h.seekToEndOfFile()
+                                        h.write(data)
+                                        try? h.close()
+                                    } else {
+                                        try? data.write(to: logURL)
+                                    }
+                                }
+                            }
+                        }
                         var lxm = LXMessage(
                             id: msg.messageHash,
                             sourceHash: msg.sourceHash,
@@ -609,6 +652,13 @@ final class AppState: ObservableObject {
                             fields: parsedFields
                         )
                         lxm.attachments = parsedAttachments
+                        for att in parsedAttachments {
+                            self.attachmentStats.record(AttachmentEvent(
+                                timestamp: Date(), direction: "in",
+                                mimeType: att.mimeType, size: att.data.count,
+                                filename: att.name, success: true, note: nil
+                            ))
+                        }
                         self.handleReceivedMessage(lxm)
 
                         let attLabel = parsedAttachments.isEmpty
@@ -692,32 +742,69 @@ final class AppState: ObservableObject {
 
     /// Decode the raw LXMF fields blob handed to us by the Rust engine.
     /// The blob is the msgpack-encoded fields map: `{ field_id: value, ... }`.
-    /// Returns the non-attachment fields (so existing code paths keep
-    /// working) and any binary attachments separately, since the
-    /// ChatMessage / MessageBubble surfaces attachments via a dedicated
-    /// property — packing them back into `fields` would hide them.
+    ///
+    /// Field shapes follow the Python LXMF reference (used by Sideband,
+    /// Reticulum MeshChat, Ratspeak, NomadNet, etc.):
+    ///   0x05 FIELD_FILE_ATTACHMENTS → list of `[name_str, data_bin]`
+    ///   0x06 FIELD_IMAGE            → `[image_type_str, image_bin]`
+    ///   0x07 FIELD_AUDIO            → `[audio_mode_int, audio_bin]`
+    ///
+    /// For self-talk back-compat we also accept the older 3-element
+    /// `[name, bytes, mime]` shape this app used to emit, and an optional
+    /// custom 0xF0 MIME tag.
     private static func parseRustFields(_ raw: Data) -> ([UInt8: MessagePackValue], [LXMFAttachment]) {
         guard !raw.isEmpty else { return ([:], []) }
         guard let value = try? MessagePackDecoder.decode(raw),
               case .map(let pairs) = value else {
+            NSLog("[RustEngine] parseRustFields: NOT a msgpack map, hex=\(raw.map { String(format: "%02x", $0) }.joined())")
             return ([:], [])
         }
         var fields: [UInt8: MessagePackValue] = [:]
         var attachments: [LXMFAttachment] = []
+        var customMime: String?
+
         for (key, val) in pairs {
             guard let keyNum = key.intValue else { continue }
             let fieldType = UInt8(truncatingIfNeeded: keyNum)
             switch fieldType {
-            case LXMessage.FieldType.fileAttachments.rawValue,
-                 LXMessage.FieldType.image.rawValue,
-                 LXMessage.FieldType.audio.rawValue:
-                if let att = LXMFAttachment.fromMessagePack(val) {
+            case LXMessage.FieldType.fileAttachments.rawValue:
+                // FIELD_FILE_ATTACHMENTS is a LIST of entries.
+                // Accept both Python reference (`[[name, bytes], ...]`) and
+                // the older single-entry-as-array shape (`[name, bytes, mime?]`).
+                if case .array(let outer) = val {
+                    let entriesAreLists = outer.contains { if case .array = $0 { return true } else { return false } }
+                    if entriesAreLists {
+                        for entry in outer {
+                            if let att = LXMFAttachment.fromMessagePack(entry) {
+                                attachments.append(att)
+                            }
+                        }
+                    } else if let att = LXMFAttachment.fromMessagePack(val) {
+                        attachments.append(att)
+                    }
+                }
+            case LXMessage.FieldType.image.rawValue:
+                if let att = LXMFAttachment.fromImageField(val) {
                     attachments.append(att)
                 }
+            case LXMessage.FieldType.audio.rawValue:
+                if let att = LXMFAttachment.fromAudioField(val) {
+                    attachments.append(att)
+                }
+            case 0xF0: // app-specific MIME override (legacy outbound from this app)
+                customMime = val.stringValue
             default:
                 fields[fieldType] = val
             }
         }
+
+        // If our older outbound bundled mime via 0xF0 next to a single file
+        // attachment, apply it so the bubble shows it as the right type.
+        if let mime = customMime, attachments.count == 1 {
+            let a = attachments[0]
+            attachments[0] = LXMFAttachment(name: a.name, data: a.data, mimeType: mime)
+        }
+
         return (fields, attachments)
     }
 
@@ -876,6 +963,23 @@ final class AppState: ObservableObject {
         guard let idx = conversations.firstIndex(where: { $0.id == conversationId }) else { return }
         conversations[idx].disappearingDuration = duration
         storageService?.saveConversations(conversations)
+    }
+
+    // MARK: - Peer Rename
+
+    /// Sets the local display name override for a conversation. Pass `nil` to clear.
+    func setDisplayName(_ name: String?, for conversationId: UUID) {
+        guard let idx = conversations.firstIndex(where: { $0.id == conversationId }) else { return }
+        conversations[idx].displayName = name
+        storageService?.saveConversations(conversations)
+    }
+
+    /// Returns the user-set rename for a peer (from its conversation), if any.
+    /// Used by peer-list views so a rename in Peer Info reflects everywhere.
+    func customDisplayName(forPeerHash hash: Data) -> String? {
+        guard let name = conversations.first(where: { $0.peerHash == hash })?.displayName,
+              !name.isEmpty else { return nil }
+        return name
     }
 
     // MARK: - Identity Management

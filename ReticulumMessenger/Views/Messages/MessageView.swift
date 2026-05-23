@@ -117,22 +117,22 @@ struct MessageView: View {
             .padding(.vertical, 8)
             .background(.bar)
         }
-        .navigationTitle(conversation.resolvedName)
+        .navigationTitle(currentConversation.resolvedName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
-                    if conversation.isGroup {
-                        GroupDetailView(conversation: conversation)
+                    if currentConversation.isGroup {
+                        GroupDetailView(conversation: currentConversation)
                     } else {
-                        PeerDetailView(conversation: conversation)
+                        PeerDetailView(conversation: currentConversation)
                     }
                 } label: {
-                    if conversation.isGroup {
+                    if currentConversation.isGroup {
                         Image(systemName: "person.3.fill")
                             .font(.system(size: 14))
                     } else {
-                        AvatarView(hash: conversation.peerHash, size: 28)
+                        AvatarView(hash: currentConversation.peerHash, size: 28)
                     }
                 }
             }
@@ -163,8 +163,9 @@ struct MessageView: View {
             markAsRead()
         }
         .onChange(of: selectedImage) { _, newImage in
-            if let image = newImage, let data = image.jpegData(compressionQuality: 0.7) {
-                pendingAttachmentData = data
+            if let image = newImage {
+                let resized = Self.downscaleForLXMF(image)
+                pendingAttachmentData = resized
                 pendingAttachmentMime = "image/jpeg"
                 pendingAttachmentName = "photo.jpg"
             }
@@ -253,6 +254,7 @@ struct MessageView: View {
 
         if let attachmentData = pendingAttachmentData,
            let mime = pendingAttachmentMime {
+            let caption = content
             messageText = ""
             isSending = true
             let name = pendingAttachmentName
@@ -264,7 +266,8 @@ struct MessageView: View {
                         data: attachmentData,
                         mimeType: mime,
                         filename: name,
-                        to: conversation.peerHash
+                        to: conversation.peerHash,
+                        body: caption
                     )
                 } catch {
                     markLastOutgoingAsFailed()
@@ -366,6 +369,29 @@ struct MessageView: View {
         default: return "application/octet-stream"
         }
     }
+
+    /// Downscale a UIImage so the JPEG output stays under ~250 KB — large
+    /// enough for a sharp preview, small enough for reliable LXMF delivery
+    /// over Reticulum (the protocol uses link-based Resource transfer for
+    /// payloads above ~500 B, but very large transfers can time out on
+    /// high-latency mesh paths).
+    private static func downscaleForLXMF(_ image: UIImage) -> Data {
+        let maxDim: CGFloat = 1024
+        var img = image
+        if max(image.size.width, image.size.height) > maxDim {
+            let scale = maxDim / max(image.size.width, image.size.height)
+            let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            let renderer = UIGraphicsImageRenderer(size: newSize)
+            img = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: newSize)) }
+        }
+        // Try progressively lower quality until we're under the target.
+        for q: CGFloat in [0.6, 0.4, 0.25, 0.15] {
+            if let data = img.jpegData(compressionQuality: q), data.count <= 250_000 {
+                return data
+            }
+        }
+        return img.jpegData(compressionQuality: 0.1) ?? Data()
+    }
 }
 
 // MARK: - Forward Message Sheet
@@ -425,6 +451,8 @@ struct PeerDetailView: View {
     let conversation: Conversation
 
     @State private var disappearingDuration: DisappearingDuration = .off
+    @State private var editedName: String = ""
+    @FocusState private var nameFieldFocused: Bool
 
     var body: some View {
         List {
@@ -433,8 +461,13 @@ struct PeerDetailView: View {
                     Spacer()
                     VStack(spacing: 12) {
                         AvatarView(hash: conversation.peerHash, size: 80)
-                        Text(conversation.resolvedName)
+                        TextField(conversation.shortHash, text: $editedName)
                             .font(.title2.bold())
+                            .multilineTextAlignment(.center)
+                            .textFieldStyle(.plain)
+                            .submitLabel(.done)
+                            .focused($nameFieldFocused)
+                            .onSubmit { commitName() }
                         Text(conversation.peerHexHash)
                             .font(.caption)
                             .monospaced()
@@ -444,6 +477,8 @@ struct PeerDetailView: View {
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
+            } footer: {
+                Text("Tap the name to rename this peer locally.")
             }
 
             Section("Details") {
@@ -490,7 +525,20 @@ struct PeerDetailView: View {
         .onAppear {
             if let conv = appState.conversations.first(where: { $0.id == conversation.id }) {
                 disappearingDuration = conv.disappearingDuration
+                editedName = conv.displayName ?? ""
             }
         }
+        .onChange(of: nameFieldFocused) { _, focused in
+            if !focused { commitName() }
+        }
+        .onDisappear { commitName() }
+    }
+
+    private func commitName() {
+        let trimmed = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newName: String? = trimmed.isEmpty ? nil : trimmed
+        let current = appState.conversations.first(where: { $0.id == conversation.id })?.displayName
+        guard newName != current else { return }
+        appState.setDisplayName(newName, for: conversation.id)
     }
 }

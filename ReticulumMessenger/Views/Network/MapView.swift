@@ -157,7 +157,8 @@ struct MeshMapView: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(peer.displayName.isEmpty ? peer.shortHash : peer.displayName)
+                        Text(appState.customDisplayName(forPeerHash: peer.destinationHash)
+                             ?? (peer.displayName.isEmpty ? peer.shortHash : peer.displayName))
                             .font(.caption.bold())
                         Text(peer.shortHash)
                             .font(.system(size: 9))
@@ -254,8 +255,17 @@ struct Triangle: Shape {
 // MARK: - Peer Location Detail
 
 struct PeerLocationDetailView: View {
+    @EnvironmentObject var appState: AppState
     let peer: PeerLocation
     @Environment(\.dismiss) var dismiss
+
+    private var resolvedName: String {
+        if let data = Data(hexString: peer.peerHash),
+           let custom = appState.customDisplayName(forPeerHash: data) {
+            return custom
+        }
+        return peer.displayName ?? "Unknown Peer"
+    }
 
     var body: some View {
         NavigationStack {
@@ -267,7 +277,7 @@ struct PeerLocationDetailView: View {
                             Image(systemName: "antenna.radiowaves.left.and.right.circle.fill")
                                 .font(.system(size: 48))
                                 .foregroundStyle(Color.accentColor)
-                            Text(peer.displayName ?? "Unknown Peer")
+                            Text(resolvedName)
                                 .font(.title3.bold())
                             Text(peer.peerHash)
                                 .font(.caption)

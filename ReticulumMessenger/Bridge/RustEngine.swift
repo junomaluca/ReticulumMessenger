@@ -246,12 +246,15 @@ final class RustEngine: @unchecked Sendable {
     }
 
     /// Send an arbitrary binary attachment alongside an optional text body.
-    /// Uses the official LXMF FIELD_FILE_ATTACHMENTS / IMAGE / AUDIO routing.
+    /// The Rust FFI routes the attachment to the appropriate LXMF field
+    /// (0x05 file / 0x06 image / 0x07 audio) based on filename extension.
     @discardableResult
     func sendAttachment(to destHash: Data, data: Data, mimeType: String, filename: String,
                         title: String = "", body: String = "") throws -> Data {
         guard handle != 0 else { throw RustEngineError.sendFailed("engine not started") }
         guard destHash.count == 16 else { throw RustEngineError.invalidArgument("destHash must be 16 bytes") }
+
+        NSLog("[RustEngine] sendAttachment: filename=\(filename) mime=\(mimeType) bytes=\(data.count)")
 
         let msg = destHash.withUnsafeBytes { destBytes -> UInt64 in
             body.withCString { cPtr in
@@ -269,7 +272,7 @@ final class RustEngine: @unchecked Sendable {
         guard msg != 0 else { throw RustEngineError.sendFailed(Self.lastError() ?? "lxmf_message_new returned 0") }
         defer { _ = lxmf_message_destroy(msg) }
 
-        _ = filename.withCString { fnamePtr in
+        let attRc = filename.withCString { fnamePtr in
             data.withUnsafeBytes { dataBytes -> Int32 in
                 lxmf_message_add_attachment(
                     msg, fnamePtr,
@@ -278,13 +281,18 @@ final class RustEngine: @unchecked Sendable {
                 )
             }
         }
-        _ = lxmf_message_add_field(msg, 0xF0, mimeType)  // custom MIME tag
+        if attRc != 0 {
+            let err = Self.lastError() ?? "rc=\(attRc)"
+            NSLog("[RustEngine] lxmf_message_add_attachment FAILED: \(err)")
+            throw RustEngineError.sendFailed("add_attachment failed: \(err)")
+        }
 
         let rc = lxmf_message_send(handle, msg)
         guard rc == 0 else { throw RustEngineError.sendFailed(Self.lastError() ?? "lxmf_message_send rc=\(rc)") }
 
         var hashBuf = [UInt8](repeating: 0, count: 32)
         let n = lxmf_message_hash(msg, &hashBuf, 32)
+        NSLog("[RustEngine] sendAttachment succeeded, hash bytes=\(n)")
         return n > 0 ? Data(hashBuf.prefix(Int(n))) : Data()
     }
 

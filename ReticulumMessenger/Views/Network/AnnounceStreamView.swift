@@ -54,7 +54,7 @@ struct AnnounceRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(announce.displayName ?? announce.shortHash)
+                    Text(resolvedName)
                         .font(.subheadline.bold())
                     Spacer()
                     Text(announce.timestamp, style: .relative)
@@ -93,6 +93,14 @@ struct AnnounceRow: View {
                 }
             }
         }
+    }
+
+    private var resolvedName: String {
+        if let hash = announce.destinationHash,
+           let custom = appState.customDisplayName(forPeerHash: hash) {
+            return custom
+        }
+        return announce.displayName ?? announce.shortHash
     }
 
     private var announceIcon: String {

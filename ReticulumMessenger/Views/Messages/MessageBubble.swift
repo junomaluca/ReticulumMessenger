@@ -15,6 +15,7 @@ struct MessageBubble: View {
     @State private var isPlayingAudio = false
     @State private var audioPlayer: AVAudioPlayer?
     @State private var audioDelegate: AudioPlaybackDelegate?
+    @State private var shareItem: ShareableAttachment?
 
     private let reactionEmojis = ["👍", "❤️", "😂", "😮", "🔥", "🙏"]
 
@@ -36,13 +37,12 @@ struct MessageBubble: View {
                             .foregroundColor(.accentColor)
                     }
 
-                    if let attachment = message.attachment {
-                        attachmentView(attachment)
-                        // Also show body text if it carries something extra
-                        // beyond the attachment's own filename (e.g. captions
-                        // from peers that send image + caption together).
+                    if !message.allAttachments.isEmpty {
+                        ForEach(Array(message.allAttachments.enumerated()), id: \.offset) { _, att in
+                            attachmentView(att)
+                        }
                         if !message.content.isEmpty,
-                           message.content != attachment.filename,
+                           message.content != message.attachment?.filename,
                            message.content != "Attachment" {
                             Text(message.content)
                                 .font(.body)
@@ -101,6 +101,14 @@ struct MessageBubble: View {
                             Label("Copy", systemImage: "doc.on.doc")
                         }
 
+                        if let att = message.attachment {
+                            Button {
+                                shareAttachment(att)
+                            } label: {
+                                Label("Save / Share", systemImage: "square.and.arrow.up")
+                            }
+                        }
+
                         Button {
                             onForward?()
                         } label: {
@@ -113,6 +121,16 @@ struct MessageBubble: View {
             if message.isIncoming { Spacer(minLength: 60) }
         }
         .padding(.vertical, 2)
+        .sheet(item: $shareItem) { item in
+            ShareSheet(activityItems: [item.tempURL])
+        }
+    }
+
+    private var isPlayableAudio: Bool {
+        guard let att = message.attachment, att.mimeType.hasPrefix("audio/") else { return false }
+        let mime = att.mimeType.lowercased()
+        return mime.contains("m4a") || mime.contains("mp4") || mime.contains("mpeg")
+            || mime.contains("wav") || mime.contains("aiff") || mime.contains("caf")
     }
 
     @ViewBuilder
@@ -124,18 +142,42 @@ struct MessageBubble: View {
                 .scaledToFit()
                 .frame(maxWidth: 220, maxHeight: 220)
                 .cornerRadius(8)
+                .onTapGesture { shareAttachment(attachment) }
+        } else if attachment.mimeType.hasPrefix("image/") {
+            // Image MIME but data can't be decoded — show as file
+            HStack(spacing: 8) {
+                Image(systemName: "photo.badge.exclamationmark")
+                    .font(.title3)
+                    .foregroundColor(message.isIncoming ? .accentColor : .white)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(attachment.filename)
+                        .font(.caption.bold())
+                        .foregroundColor(message.isIncoming ? .primary : .white)
+                    Text("\(formatFileSize(attachment.data.count)) — unsupported format")
+                        .font(.caption2)
+                        .foregroundColor(message.isIncoming ? .secondary : .white.opacity(0.7))
+                }
+            }
+            .onTapGesture { shareAttachment(attachment) }
         } else if attachment.mimeType.hasPrefix("audio/") {
+            let playable = canPlayAudio(attachment.mimeType)
             HStack(spacing: 10) {
                 Button {
-                    toggleAudioPlayback(attachment.data)
+                    if playable {
+                        toggleAudioPlayback(attachment.data)
+                    } else {
+                        shareAttachment(attachment)
+                    }
                 } label: {
-                    Image(systemName: isPlayingAudio ? "stop.circle.fill" : "play.circle.fill")
+                    Image(systemName: playable
+                          ? (isPlayingAudio ? "stop.circle.fill" : "play.circle.fill")
+                          : "square.and.arrow.up.circle.fill")
                         .font(.system(size: 32))
                         .foregroundColor(message.isIncoming ? .accentColor : .white)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Voice Message")
+                    Text(audioLabel(attachment))
                         .font(.caption.bold())
                         .foregroundColor(message.isIncoming ? .primary : .white)
                     Text(formatFileSize(attachment.data.count))
@@ -144,21 +186,52 @@ struct MessageBubble: View {
                 }
             }
         } else {
-            // Generic file attachment
             HStack(spacing: 8) {
-                Image(systemName: "doc.fill")
+                Image(systemName: fileIcon(for: attachment.mimeType))
                     .font(.title3)
                     .foregroundColor(message.isIncoming ? .accentColor : .white)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(attachment.filename)
                         .font(.caption.bold())
                         .foregroundColor(message.isIncoming ? .primary : .white)
+                        .lineLimit(2)
                     Text(formatFileSize(attachment.data.count))
                         .font(.caption2)
                         .foregroundColor(message.isIncoming ? .secondary : .white.opacity(0.7))
                 }
             }
+            .onTapGesture { shareAttachment(attachment) }
         }
+    }
+
+    private func canPlayAudio(_ mime: String) -> Bool {
+        let m = mime.lowercased()
+        return m.contains("m4a") || m.contains("mp4") || m.contains("mpeg")
+            || m.contains("wav") || m.contains("aiff") || m.contains("caf")
+    }
+
+    private func audioLabel(_ att: ChatAttachment) -> String {
+        let m = att.mimeType.lowercased()
+        if m.contains("opus") { return "Opus Audio" }
+        if m.contains("codec2") { return "Codec2 Audio" }
+        return "Voice Message"
+    }
+
+    private func fileIcon(for mime: String) -> String {
+        if mime.contains("pdf") { return "doc.richtext" }
+        if mime.contains("json") || mime.contains("text") || mime.contains("csv") { return "doc.text" }
+        if mime.contains("zip") || mime.contains("tar") || mime.contains("gz") { return "doc.zipper" }
+        if mime.hasPrefix("image/") { return "photo" }
+        if mime.hasPrefix("video/") { return "film" }
+        return "doc.fill"
+    }
+
+    private func shareAttachment(_ att: ChatAttachment) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("share-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let tmp = dir.appendingPathComponent(att.filename)
+        try? att.data.write(to: tmp)
+        shareItem = ShareableAttachment(tempURL: tmp)
     }
 
     private func toggleAudioPlayback(_ data: Data) {
@@ -281,6 +354,21 @@ final class AudioPlaybackDelegate: NSObject, AVAudioPlayerDelegate {
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         onFinish()
     }
+}
+
+// MARK: - Share Sheet
+
+struct ShareableAttachment: Identifiable {
+    let id = UUID()
+    let tempURL: URL
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Bubble Shape

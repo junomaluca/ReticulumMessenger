@@ -73,6 +73,12 @@ enum DiagnosticsService {
                 out += "  • \(line)\n"
             }
         }
+        if !appState.rustRecentFieldHex.isEmpty {
+            out += "Rust Recent Inbound fieldsRaw (newest last) — for attachment-format diagnosis:\n"
+            for line in appState.rustRecentFieldHex.suffix(10) {
+                out += "  ▸ \(line)\n"
+            }
+        }
         out += "\n"
 
         out += "=== Network ===\n"
@@ -126,6 +132,24 @@ enum DiagnosticsService {
         out += "(content not included for privacy)\n"
         out += "\n"
 
+        out += "=== Attachment Stats ===\n"
+        let stats = appState.attachmentStats
+        out += "Received: \(stats.totalReceived) (\(formatBytes(stats.totalBytesReceived)))\n"
+        out += "Sent:     \(stats.totalSent) (\(formatBytes(stats.totalBytesSent)))\n"
+        out += "Failed:   \(stats.totalFailed)\n"
+        if !stats.receivedByType.isEmpty {
+            out += "Received by type: \(stats.receivedByType.sorted(by: { $0.key < $1.key }).map { "\($0.key):\($0.value)" }.joined(separator: ", "))\n"
+        }
+        if !stats.events.isEmpty {
+            out += "Recent events (newest last):\n"
+            for e in stats.events.suffix(20) {
+                let dir = e.direction == "in" ? "←" : "→"
+                let ok = e.success ? "ok" : "FAIL"
+                out += "  \(dir) \(ok) \(e.mimeType) \(formatBytes(e.size)) \(e.filename)\(e.note.map { " (\($0)" } ?? "")\n"
+            }
+        }
+        out += "\n"
+
         out += "=== Settings ===\n"
         out += "Auto-announce: \(appState.autoAnnounceEnabled)\n"
         out += "Transport mode: \(appState.transportModeEnabled)\n"
@@ -165,6 +189,12 @@ enum DiagnosticsService {
         }
 
         return out
+    }
+
+    private static func formatBytes(_ bytes: Int) -> String {
+        if bytes < 1024 { return "\(bytes) B" }
+        if bytes < 1024 * 1024 { return "\(bytes / 1024) KB" }
+        return String(format: "%.1f MB", Double(bytes) / (1024 * 1024))
     }
 
     /// POST the report to paste.rs and return the resulting URL.

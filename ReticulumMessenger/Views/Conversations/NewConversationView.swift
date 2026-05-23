@@ -33,14 +33,15 @@ struct NewConversationView: View {
                 if !appState.knownPeers.isEmpty {
                     Section("Discovered Peers") {
                         ForEach(appState.knownPeers) { peer in
+                            let resolved = appState.customDisplayName(forPeerHash: peer.destinationHash) ?? peer.displayName
                             Button {
                                 destinationHash = peer.hexHash
-                                displayName = peer.displayName
+                                displayName = resolved
                             } label: {
                                 HStack {
                                     AvatarView(hash: peer.destinationHash, size: 36)
                                     VStack(alignment: .leading) {
-                                        Text(peer.displayName)
+                                        Text(resolved)
                                             .font(.body)
                                         Text(peer.shortHash)
                                             .font(.caption)

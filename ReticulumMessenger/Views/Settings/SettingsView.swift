@@ -25,10 +25,13 @@ struct SettingsView: View {
                             TextField("Display Name", text: $displayName)
                                 .font(.headline)
                                 .onSubmit { saveDisplayName() }
-                            Text(appState.rustIdentityHash.isEmpty ? "..." : String(appState.rustIdentityHash.prefix(16)))
+                            Text(appState.rustLxmfAddress.isEmpty
+                                 ? (appState.rustIdentityHash.isEmpty ? "..." : String(appState.rustIdentityHash.prefix(16)))
+                                 : appState.rustLxmfAddress)
                                 .font(.caption)
                                 .monospaced()
                                 .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
                         }
                     }
                 }
@@ -53,7 +56,7 @@ struct SettingsView: View {
                         Label("Backup & Restore", systemImage: "key.viewfinder")
                     }
 
-                    Button("Announce on Network") {
+                    Button {
                         Task {
                             do {
                                 try await appState.messengerService?.announce(
@@ -64,6 +67,8 @@ struct SettingsView: View {
                                 // Announce failed silently — network may be offline
                             }
                         }
+                    } label: {
+                        Label("Announce on Network", systemImage: "dot.radiowaves.left.and.right")
                     }
                 }
 

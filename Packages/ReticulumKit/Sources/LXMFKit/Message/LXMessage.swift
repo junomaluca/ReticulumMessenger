@@ -162,20 +162,32 @@ public struct LXMessage: Identifiable, Sendable {
     public func serialize() -> Data {
         // Build the fields dict (binary attachments + caller-provided custom fields).
         // Display names and timestamp live in the positional msgpack array, not here.
+        //
+        // Attachment encoding follows the Python LXMF reference so
+        // Sideband, MeshChat, Ratspeak, NomadNet can all decode us:
+        //   0x05 FIELD_FILE_ATTACHMENTS → [[name, data], ...]
+        //   0x06 FIELD_IMAGE            → [ext_string, image_data]
+        //   0x07 FIELD_AUDIO            → [mode_int, audio_data]
         var fieldMap: [(MessagePackValue, MessagePackValue)] = []
+        var fileEntries: [MessagePackValue] = []
+
         for attachment in attachments {
             let mime = attachment.mimeType.lowercased()
-            // Route by MIME type onto the official LXMF field IDs.
-            let fieldId: UInt8
-            if mime.hasPrefix("image/")      { fieldId = FieldType.image.rawValue }
-            else if mime.hasPrefix("audio/") { fieldId = FieldType.audio.rawValue }
-            else                              { fieldId = FieldType.fileAttachments.rawValue }
-            let attArray: MessagePackValue = .array([
-                .string(attachment.name),
-                .binary(attachment.data),
-                .string(attachment.mimeType)
-            ])
-            fieldMap.append((.uint(UInt64(fieldId)), attArray))
+            if mime.hasPrefix("image/") {
+                let ext = (attachment.name as NSString).pathExtension.lowercased()
+                let imageExt = ext.isEmpty ? "jpg" : ext
+                let val: MessagePackValue = .array([.string(imageExt), .binary(attachment.data)])
+                fieldMap.append((.uint(UInt64(FieldType.image.rawValue)), val))
+            } else if mime == "audio/opus" || mime == "audio/codec2" {
+                let mode: UInt64 = mime == "audio/codec2" ? 0 : 16
+                let val: MessagePackValue = .array([.uint(mode), .binary(attachment.data)])
+                fieldMap.append((.uint(UInt64(FieldType.audio.rawValue)), val))
+            } else {
+                fileEntries.append(.array([.string(attachment.name), .binary(attachment.data)]))
+            }
+        }
+        if !fileEntries.isEmpty {
+            fieldMap.append((.uint(UInt64(FieldType.fileAttachments.rawValue)), .array(fileEntries)))
         }
         for (key, value) in fields {
             fieldMap.append((.uint(UInt64(key)), value))
@@ -347,10 +359,25 @@ public struct LXMessage: Identifiable, Sendable {
                 guard let keyNum = key.intValue else { continue }
                 let fieldType = UInt8(keyNum)
                 switch fieldType {
-                case FieldType.fileAttachments.rawValue,
-                     FieldType.image.rawValue,
-                     FieldType.audio.rawValue:
-                    if let att = LXMFAttachment.fromMessagePack(val) {
+                case FieldType.fileAttachments.rawValue:
+                    if case .array(let outer) = val {
+                        let entriesAreLists = outer.contains { if case .array = $0 { return true } else { return false } }
+                        if entriesAreLists {
+                            for entry in outer {
+                                if let att = LXMFAttachment.fromMessagePack(entry) {
+                                    attachments.append(att)
+                                }
+                            }
+                        } else if let att = LXMFAttachment.fromMessagePack(val) {
+                            attachments.append(att)
+                        }
+                    }
+                case FieldType.image.rawValue:
+                    if let att = LXMFAttachment.fromImageField(val) {
+                        attachments.append(att)
+                    }
+                case FieldType.audio.rawValue:
+                    if let att = LXMFAttachment.fromAudioField(val) {
                         attachments.append(att)
                     }
                 default:
@@ -422,14 +449,82 @@ public struct LXMFAttachment: Sendable, Identifiable {
         self.mimeType = mimeType
     }
 
+    /// Decode one entry from LXMF `FIELD_FILE_ATTACHMENTS` (0x05).
+    /// The canonical Python reference uses `[name, bytes]` (2-element). Older
+    /// builds of this app emitted `[name, bytes, mime]` (3-element); accept both.
+    /// `name` may arrive as either a msgpack STR or BIN.
     public static func fromMessagePack(_ value: MessagePackValue) -> LXMFAttachment? {
-        guard case .array(let arr) = value, arr.count >= 3,
-              let name = arr[0].stringValue,
-              let data = arr[1].dataValue,
-              let mime = arr[2].stringValue else {
+        guard case .array(let arr) = value, arr.count >= 2,
+              let data = arr[1].binaryOrStringData else {
             return nil
         }
+        let name = arr[0].stringValue ?? arr[0].dataValue.flatMap { String(data: $0, encoding: .utf8) } ?? "attachment"
+        let mime: String = (arr.count >= 3 ? arr[2].stringValue : nil) ?? mimeGuess(forFilename: name)
         return LXMFAttachment(name: name, data: data, mimeType: mime)
+    }
+
+    /// Decode LXMF `FIELD_IMAGE` (0x06): `[image_type_string, image_bytes]`.
+    /// Sideband / MeshChat encode the image type as a short extension like
+    /// "png" / "jpg" / "webp" — derive both a filename and MIME from it.
+    public static func fromImageField(_ value: MessagePackValue) -> LXMFAttachment? {
+        guard case .array(let arr) = value, arr.count >= 2,
+              let data = arr[1].binaryOrStringData else {
+            return nil
+        }
+        let rawType: String = arr[0].stringValue
+            ?? arr[0].dataValue.flatMap { String(data: $0, encoding: .utf8) }
+            ?? "bin"
+        let ext = rawType.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        let mime: String
+        switch ext {
+        case "jpg", "jpeg": mime = "image/jpeg"
+        case "png":         mime = "image/png"
+        case "gif":         mime = "image/gif"
+        case "webp":        mime = "image/webp"
+        case "heic":        mime = "image/heic"
+        default:            mime = "image/\(ext.isEmpty ? "octet-stream" : ext)"
+        }
+        return LXMFAttachment(name: "image.\(ext.isEmpty ? "bin" : ext)", data: data, mimeType: mime)
+    }
+
+    /// Decode LXMF `FIELD_AUDIO` (0x07): `[audio_mode_int, audio_bytes]`.
+    /// `audio_mode` is a Codec2/Opus mode integer (0..15 are Codec2, 16+ Opus).
+    /// We don't decode it back to audio here — surface the raw bytes and a
+    /// reasonable filename/mime so the bubble can offer playback.
+    public static func fromAudioField(_ value: MessagePackValue) -> LXMFAttachment? {
+        guard case .array(let arr) = value, arr.count >= 2,
+              let data = arr[1].binaryOrStringData else {
+            return nil
+        }
+        let mode = arr[0].intValue ?? 0
+        // Codec2 modes 0..15; modes >= 16 are Opus in Sideband's scheme.
+        let mime = mode >= 16 ? "audio/opus" : "audio/codec2"
+        let ext  = mode >= 16 ? "opus" : "c2"
+        return LXMFAttachment(name: "voice.\(ext)", data: data, mimeType: mime)
+    }
+
+    /// Best-effort MIME guess from a filename's extension. Used when a peer
+    /// sends a `FIELD_FILE_ATTACHMENTS` entry without a MIME (the reference shape).
+    public static func mimeGuess(forFilename name: String) -> String {
+        let ext = (name as NSString).pathExtension.lowercased()
+        switch ext {
+        case "jpg", "jpeg": return "image/jpeg"
+        case "png":         return "image/png"
+        case "gif":         return "image/gif"
+        case "webp":        return "image/webp"
+        case "heic":        return "image/heic"
+        case "mp3":         return "audio/mpeg"
+        case "m4a":         return "audio/mp4"
+        case "wav":         return "audio/wav"
+        case "ogg":         return "audio/ogg"
+        case "opus":        return "audio/opus"
+        case "mp4":         return "video/mp4"
+        case "mov":         return "video/quicktime"
+        case "pdf":         return "application/pdf"
+        case "txt":         return "text/plain"
+        case "json":        return "application/json"
+        default:            return "application/octet-stream"
+        }
     }
 }
 

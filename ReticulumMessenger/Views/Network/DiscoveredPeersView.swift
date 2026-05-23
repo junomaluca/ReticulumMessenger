@@ -22,7 +22,7 @@ struct DiscoveredPeersView: View {
                         HStack {
                             AvatarView(hash: peer.destinationHash, size: 36)
                             VStack(alignment: .leading) {
-                                Text(peer.displayName)
+                                Text(appState.customDisplayName(forPeerHash: peer.destinationHash) ?? peer.displayName)
                                     .font(.body)
                                 Text(peer.shortHash)
                                     .font(.caption)

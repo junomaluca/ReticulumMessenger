@@ -48,10 +48,9 @@ enum DisappearingDuration: String, Codable, CaseIterable {
 
 /// A conversation with a specific peer or group, containing message history.
 struct Conversation: Identifiable, Codable, Hashable {
-    static func == (lhs: Conversation, rhs: Conversation) -> Bool {
-        lhs.id == rhs.id
-    }
-
+    // Hash by id only (cheap & stable for NavigationPath / Set use).
+    // Equatable is synthesized over all stored properties so SwiftUI
+    // re-renders rows when messages, displayName, etc. change.
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }

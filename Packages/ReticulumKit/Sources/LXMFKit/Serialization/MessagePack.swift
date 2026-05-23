@@ -36,6 +36,14 @@ public enum MessagePackValue: Sendable, Equatable {
         return nil
     }
 
+    /// Like `dataValue` but also accepts a msgpack STR — some LXMF
+    /// implementations encode binary payloads as STR instead of BIN.
+    public var binaryOrStringData: Data? {
+        if case .binary(let d) = self { return d }
+        if case .string(let s) = self { return Data(s.utf8) }
+        return nil
+    }
+
     public var arrayValue: [MessagePackValue]? {
         if case .array(let a) = self { return a }
         return nil
