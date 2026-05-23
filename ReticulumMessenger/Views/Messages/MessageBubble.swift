@@ -16,6 +16,7 @@ struct MessageBubble: View {
     @State private var audioPlayer: AVAudioPlayer?
     @State private var audioDelegate: AudioPlaybackDelegate?
     @State private var shareItem: ShareableAttachment?
+    @State private var fullscreenImage: UIImage?
 
     private let reactionEmojis = ["👍", "❤️", "😂", "😮", "🔥", "🙏"]
 
@@ -124,6 +125,12 @@ struct MessageBubble: View {
         .sheet(item: $shareItem) { item in
             ShareSheet(activityItems: [item.tempURL])
         }
+        .fullScreenCover(item: Binding(
+            get: { fullscreenImage.map { IdentifiableImage(image: $0) } },
+            set: { if $0 == nil { fullscreenImage = nil } }
+        )) { item in
+            ImageViewerView(image: item.image)
+        }
     }
 
     private var isPlayableAudio: Bool {
@@ -142,7 +149,7 @@ struct MessageBubble: View {
                 .scaledToFit()
                 .frame(maxWidth: 220, maxHeight: 220)
                 .cornerRadius(8)
-                .onTapGesture { shareAttachment(attachment) }
+                .onTapGesture { fullscreenImage = uiImage }
         } else if attachment.mimeType.hasPrefix("image/") {
             // Image MIME but data can't be decoded — show as file
             HStack(spacing: 8) {
@@ -361,6 +368,11 @@ final class AudioPlaybackDelegate: NSObject, AVAudioPlayerDelegate {
 struct ShareableAttachment: Identifiable {
     let id = UUID()
     let tempURL: URL
+}
+
+struct IdentifiableImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
 }
 
 struct ShareSheet: UIViewControllerRepresentable {

@@ -222,6 +222,11 @@ struct ConversationRow: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
+                        if lastMsg.attachment != nil {
+                            Image(systemName: attachmentIcon(lastMsg.attachment!.mimeType))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                         Text(lastMsg.content)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -253,5 +258,12 @@ struct ConversationRow: View {
         case .delivered: return "checkmark.circle"
         case .failed: return "exclamationmark.triangle"
         }
+    }
+
+    private func attachmentIcon(_ mime: String) -> String {
+        if mime.hasPrefix("image/") { return "photo" }
+        if mime.hasPrefix("audio/") { return "mic.fill" }
+        if mime.contains("pdf") { return "doc.richtext" }
+        return "paperclip"
     }
 }

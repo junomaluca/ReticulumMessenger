@@ -304,7 +304,17 @@ struct MessageView: View {
     private func forwardMessage(_ message: ChatMessage?, to target: Conversation) {
         guard let message else { return }
         Task {
-            try? await appState.sendMessage(content: message.content, to: target.peerHash)
+            if let att = message.attachment {
+                try? await appState.sendAttachment(
+                    data: att.data,
+                    mimeType: att.mimeType,
+                    filename: att.filename,
+                    to: target.peerHash,
+                    body: message.content
+                )
+            } else {
+                try? await appState.sendMessage(content: message.content, to: target.peerHash)
+            }
         }
     }
 

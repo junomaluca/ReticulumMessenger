@@ -8,6 +8,8 @@ struct SettingsView: View {
     @State private var displayName: String = ""
     @State private var showResetConfirm = false
     @State private var showAnnounceConfirm = false
+    @State private var selfTestTarget: String = ""
+    @State private var showSelfTest = false
 
     var body: some View {
         NavigationStack {
@@ -128,6 +130,19 @@ struct SettingsView: View {
                     Text("Mesh Features")
                 } footer: {
                     Text("Auto-Announce broadcasts your presence periodically. Transport Mode lets your device relay packets for the mesh. Propagation Node stores messages for offline peers.")
+                }
+
+                // Self-Test
+                Section {
+                    NavigationLink {
+                        SelfTestView()
+                    } label: {
+                        Label("Attachment Self-Test", systemImage: "checkmark.shield")
+                    }
+                } header: {
+                    Text("Diagnostics")
+                } footer: {
+                    Text("Send test attachments to a target address to verify outbound delivery.")
                 }
 
                 // About

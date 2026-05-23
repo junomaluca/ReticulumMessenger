@@ -388,25 +388,34 @@ final class AppState: ObservableObject {
     }
 
     func sendGroupMessage(content: String, groupConversation: Conversation) async throws {
-        guard let router = lxmRouter, let rns = reticulum else { return }
         guard groupConversation.isGroup, let groupId = groupConversation.groupId else { return }
 
-        let identity = try await rns.getLocalIdentity()
         let senderName = storageService?.loadDisplayName()
 
-        // Fan-out: send individual messages to each group member
-        for memberHash in groupConversation.memberHashes {
-            var message = LXMessage(
-                sourceHash: identity.hash,
-                destinationHash: memberHash,
-                content: content,
-                fields: [Self.groupFieldId: .binary(groupId)]
-            )
-            message.sourceName = senderName
-            _ = try? await router.send(message)
+        if rustEngineEnabled, rustEngineStarted, let engine = rustEngine {
+            for memberHash in groupConversation.memberHashes {
+                let destHex = memberHash.map { String(format: "%02x", $0) }.joined()
+                do {
+                    _ = try engine.sendText(to: memberHash, content: content)
+                    appendRustOutbound("group-text \(content.count)B → \(String(destHex.prefix(16)))")
+                } catch {
+                    appendRustOutbound("group-text → \(String(destHex.prefix(16))) FAIL: \(error.localizedDescription)")
+                }
+            }
+        } else if let router = lxmRouter, let rns = reticulum {
+            let identity = try await rns.getLocalIdentity()
+            for memberHash in groupConversation.memberHashes {
+                var message = LXMessage(
+                    sourceHash: identity.hash,
+                    destinationHash: memberHash,
+                    content: content,
+                    fields: [Self.groupFieldId: .binary(groupId)]
+                )
+                message.sourceName = senderName
+                _ = try? await router.send(message)
+            }
         }
 
-        // Add to local group conversation
         let chatMessage = ChatMessage(
             content: content,
             isIncoming: false,
@@ -730,6 +739,96 @@ final class AppState: ObservableObject {
         }
         _ = try engine.sendAttachment(to: dest, data: data, mimeType: mime,
                                       filename: filename, title: title, body: body)
+    }
+
+    // MARK: - Outbound Attachment Self-Test
+
+    @Published var selfTestResults: [String] = []
+    @Published var selfTestRunning = false
+
+    func runOutboundSelfTest(targetHex: String) async {
+        guard !selfTestRunning else { return }
+        selfTestRunning = true
+        selfTestResults = ["Starting outbound self-test → \(targetHex.prefix(16))…"]
+
+        guard let engine = rustEngine, rustEngineStarted else {
+            selfTestResults.append("FAIL: Rust engine not started")
+            selfTestRunning = false
+            return
+        }
+        guard let dest = Self.hexToData(targetHex), dest.count == 16 else {
+            selfTestResults.append("FAIL: Invalid target address")
+            selfTestRunning = false
+            return
+        }
+
+        struct TestCase {
+            let name: String
+            let data: Data
+            let mime: String
+            let filename: String
+            let body: String
+        }
+
+        let cases: [TestCase] = [
+            TestCase(name: "text-only", data: Data(), mime: "", filename: "", body: "selftest: plain text"),
+            TestCase(name: "small-jpeg", data: Self.makeTestJPEG(size: 500), mime: "image/jpeg", filename: "test.jpg", body: "selftest: image"),
+            TestCase(name: "png-image", data: Self.makeTestPNG(), mime: "image/png", filename: "test.png", body: "selftest: png"),
+            TestCase(name: "voice-m4a", data: Data(repeating: 0xAA, count: 2000), mime: "audio/m4a", filename: "voice.m4a", body: "selftest: audio"),
+            TestCase(name: "text-file", data: Data("Self-test file content\n".utf8), mime: "text/plain", filename: "selftest.txt", body: "selftest: file"),
+            TestCase(name: "pdf-file", data: Data("%PDF-1.4 selftest".utf8) + Data(repeating: 0, count: 5000), mime: "application/pdf", filename: "selftest.pdf", body: "selftest: pdf"),
+            TestCase(name: "binary-50kb", data: Data((0..<50_000).map { UInt8($0 & 0xFF) }), mime: "application/octet-stream", filename: "big.bin", body: "selftest: 50KB binary"),
+            TestCase(name: "with-caption", data: Self.makeTestJPEG(size: 300), mime: "image/jpeg", filename: "captioned.jpg", body: "This is a caption!"),
+        ]
+
+        for tc in cases {
+            do {
+                if tc.data.isEmpty {
+                    _ = try engine.sendText(to: dest, content: tc.body)
+                } else {
+                    _ = try engine.sendAttachment(to: dest, data: tc.data, mimeType: tc.mime,
+                                                  filename: tc.filename, body: tc.body)
+                }
+                selfTestResults.append("PASS: \(tc.name) (\(tc.data.count)B)")
+                attachmentStats.record(AttachmentEvent(
+                    timestamp: Date(), direction: "out", mimeType: tc.mime,
+                    size: tc.data.count, filename: tc.filename, success: true, note: "selftest"
+                ))
+            } catch {
+                selfTestResults.append("FAIL: \(tc.name) — \(error.localizedDescription)")
+                attachmentStats.record(AttachmentEvent(
+                    timestamp: Date(), direction: "out", mimeType: tc.mime,
+                    size: tc.data.count, filename: tc.filename, success: false,
+                    note: "selftest: \(error.localizedDescription)"
+                ))
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+
+        let passed = selfTestResults.filter { $0.hasPrefix("PASS") }.count
+        let total = cases.count
+        selfTestResults.append("Done: \(passed)/\(total) passed")
+        selfTestRunning = false
+    }
+
+    private static func makeTestJPEG(size: Int) -> Data {
+        var d = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00,
+                      0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00])
+        if d.count < size - 2 { d.append(Data(repeating: 0, count: size - d.count - 2)) }
+        d.append(contentsOf: [0xFF, 0xD9])
+        return d
+    }
+
+    private static func makeTestPNG() -> Data {
+        Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+              0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+              0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+              0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+              0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
+              0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+              0x00, 0x03, 0x01, 0x01, 0x00, 0xC9, 0xFE, 0x92,
+              0xEF, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
+              0x44, 0xAE, 0x42, 0x60, 0x82])
     }
 
     private func appendRustOutbound(_ line: String) {
