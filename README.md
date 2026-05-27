@@ -267,3 +267,4 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE) for de
 - [Mark Qvist](https://github.com/markqvist) for creating Reticulum, LXMF, and Sideband
 - The Reticulum community for building an alternative to centralized communication
 - All contributors to this project
+
